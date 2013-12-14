@@ -873,7 +873,7 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
             block_type = key - '1' + 1;
         }
         if (key == CRAFT_KEY_BLOCK_TYPE) {
-            block_type = ((block_type+2) % 13) - 1;
+            block_type = (block_type+1) % 13;
         }
         if (key == '[') {
             copy = 1;
@@ -919,13 +919,13 @@ void on_scroll(GLFWwindow *window, double xdelta, double ydelta) {
     if (ypos < -SCROLL_THRESHOLD) {
         block_type++;
         if (block_type > 11) {
-            block_type = -1;
+            block_type = 0;
         }
         ypos = 0;
     }
     if (ypos > SCROLL_THRESHOLD) {
         block_type--;
-        if (block_type < -1) {
+        if (block_type < 0) {
             block_type = 11;
         }
         ypos = 0;
