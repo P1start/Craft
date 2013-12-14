@@ -1260,7 +1260,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (glfwGetKey(window, ';')) {
+        if (glfwGetKey(window, ';') && !typing) {
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                 &p1x, &p1y, &p1z);
             if (p2y < -500) {
@@ -1270,7 +1270,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (glfwGetKey(window, '\'')) {
+        if (glfwGetKey(window, '\'') && !typing) {
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                 &p2x, &p2y, &p2z);
             if (p1y < -500) {
