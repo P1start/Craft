@@ -40,6 +40,21 @@ static float fov = 65.0;
 static int typing = 0;
 static char typing_buffer[TEXT_BUFFER_SIZE] = {0};
 
+// Added
+static int macro1 = 0;
+static int macro2 = 0;
+static int macro3 = 0;
+static int copy = 0;
+static int paste = 0;
+static int flood = 0;
+
+static int p1x = 0;
+static int p1y = 0;
+static int p1z = 0;
+static int p2x = 0;
+static int p2y = 0;
+static int p2z = 0;
+
 typedef struct {
     Map map;
     int p;
@@ -436,8 +451,20 @@ int _hit_test(
         }
         x += vx / m; y += vy / m; z += vz / m;
     }
-    return 0;
+    int nx = roundf(x);
+    int ny = roundf(y);
+    int nz = roundf(z);
+    int hw = map_get(map, nx, ny, nz);
+    if (1) {
+        *hx = px; *hy = py; *hz = pz;
+    }
+    else {
+        *hx = nx; *hy = ny; *hz = nz;
+    }
+    if (hw == 0) hw = 1;
+    return hw;
 }
+
 
 int hit_test(
     Chunk *chunks, int chunk_count, int previous,
@@ -475,6 +502,7 @@ int collide(
     Chunk *chunks, int chunk_count,
     int height, float *x, float *y, float *z)
 {
+    if (flying) return 0;
     int result = 0;
     int p = chunked(*x);
     int q = chunked(*z);
@@ -773,7 +801,25 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
             block_type = key - '1' + 1;
         }
         if (key == CRAFT_KEY_BLOCK_TYPE) {
-            block_type = block_type % 11 + 1;
+            block_type = ((block_type+2) % 13) - 1;
+        }
+        if (key == 'R') {
+            macro1 = 1;
+        }
+        if (key == 'G') {
+            macro2 = 1;
+        }
+        if (key == 'H') {
+            macro3 = 1;
+        }
+        if (key == '[') {
+            copy = 1;
+        }
+        if (key == ']') {
+            paste = 1;
+        }
+        if (key == 'Y') {
+            flood = 1;
         }
     }
 }
@@ -808,13 +854,13 @@ void on_scroll(GLFWwindow *window, double xdelta, double ydelta) {
     if (ypos < -SCROLL_THRESHOLD) {
         block_type++;
         if (block_type > 11) {
-            block_type = 1;
+            block_type = -1;
         }
         ypos = 0;
     }
     if (ypos > SCROLL_THRESHOLD) {
         block_type--;
-        if (block_type < 1) {
+        if (block_type < -1) {
             block_type = 11;
         }
         ypos = 0;
@@ -863,6 +909,19 @@ void create_window() {
         height = modes[mode_count - 1].height;
     }
     window = glfwCreateWindow(width, height, "Craft", monitor, NULL);
+}
+
+void floodfill(Chunk *chunks, int chunk_count, int x, int y, int z, int match, int block_type) {
+    if (match == 0) return;
+    if (match == block_type) return;
+    if (get_block(chunks, chunk_count, x, y, z) != match) return;
+    set_block(chunks, chunk_count, x, y, z, block_type, 1);
+    floodfill(chunks, chunk_count, x + 1, y, z, match, block_type);
+    floodfill(chunks, chunk_count, x - 1, y, z, match, block_type);
+    floodfill(chunks, chunk_count, x, y + 1, z, match, block_type);
+    floodfill(chunks, chunk_count, x, y - 1, z, match, block_type);
+    floodfill(chunks, chunk_count, x, y, z + 1, match, block_type);
+    floodfill(chunks, chunk_count, x, y, z - 1, match, block_type);
 }
 
 int main(int argc, char **argv) {
@@ -1058,7 +1117,7 @@ int main(int argc, char **argv) {
                 vx = 0; vy = 0; vz = 1;
             }
         }
-        float speed = flying ? 20 : 5;
+        float speed = (flying ? 20 : 5) * (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) ? 4 : 1);
         int step = 8;
         float ut = dt / step;
         vx = vx * ut * speed;
@@ -1088,7 +1147,7 @@ int main(int argc, char **argv) {
             int hx, hy, hz;
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                 &hx, &hy, &hz);
-            if (hy > 0 && is_destructable(hw)) {
+            if (1 && is_destructable(hw)) {
                 set_block(chunks, chunk_count, hx, hy, hz, 0, 1);
                 int above = get_block(chunks, chunk_count, hx, hy + 1, hz);
                 if (is_plant(above)) {
@@ -1103,7 +1162,7 @@ int main(int argc, char **argv) {
             int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
                 &hx, &hy, &hz);
             if (is_obstacle(hw)) {
-                if (!player_intersects_block(2, x, y, z, hx, hy, hz)) {
+                if (1 || !player_intersects_block(2, x, y, z, hx, hy, hz)) {
                     set_block(chunks, chunk_count, hx, hy, hz, block_type, 1);
                 }
             }
@@ -1118,6 +1177,131 @@ int main(int argc, char **argv) {
                 block_type = hw;
             }
         }
+
+        if (macro1) {
+            macro1 = 0;
+            int hx, hy, hz;
+            int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
+                &hx, &hy, &hz);
+            const int RADIUS = 20;
+            for (int px = -RADIUS; px <= RADIUS; px++) {
+                for (int py = -RADIUS; py <= RADIUS; py++) {
+                    for (int pz = -RADIUS; pz <= RADIUS; pz++) {
+                        if (   px*px + py*py + pz*pz >= (RADIUS*(RADIUS - 1))
+                            && px*px + py*py + pz*pz <= (RADIUS*(RADIUS + 1))
+                            && get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0
+                         || block_type == 0
+                            && px*px + py*py + pz*pz <= RADIUS*(RADIUS + 1)) {
+                            set_block(chunks, chunk_count, px + hx, py + hy, pz + hz, block_type, 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (glfwGetKey(window, ';')) {
+            int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
+                &p1x, &p1y, &p1z);
+        }
+
+        if (glfwGetKey(window, '\'')) {
+            int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
+                &p2x, &p2y, &p2z);
+        }
+
+        if (macro2) {
+            macro2 = 0;
+#define plot(x,y,z) set_block(chunks, chunk_count, x, y, z, block_type, 1)
+            float px = (float)p1x;
+            float py = (float)p1y;
+            float pz = (float)p1z;
+
+            float dx = p2x - p1x;
+            float dy = p2y - p1y;
+            float dz = p2z - p1z;
+            float N = MAX(MAX(abs(dx), abs(dy)), abs(dz));
+            float sx = dx / N;
+            float sy = dy / N;
+            float sz = dz / N;
+
+            plot(p1x, p1y, p1z);
+            for (int i = 1; i <= N; i++) {
+                px += sx;
+                py += sy;
+                pz += sz;
+                plot(round(px), round(py), round(pz));
+            }
+        }
+
+        if (macro3) {
+            macro3 = 0;
+            int lx = MIN(p1x, p2x);
+            int mx = MAX(p1x, p2x);
+            int ly = MIN(p1y, p2y);
+            int my = MAX(p1y, p2y);
+            int lz = MIN(p1z, p2z);
+            int mz = MAX(p1z, p2z);
+
+            for (int px = lx; px <= mx; px++) {
+                for (int py = ly; py <= my; py++) {
+                    for (int pz = lz; pz <= mz; pz++) {
+                        set_block(chunks, chunk_count, px, py, pz, block_type, 1);
+                    }
+                }
+            }
+        }
+
+        int copyBuffer[100][100][100];
+        int lx, ly, lz, mx, my, mz;
+        if (copy) {
+            copy = 0;
+            lx = MIN(p1x, p2x);
+            mx = MAX(p1x, p2x);
+            ly = MIN(p1y, p2y);
+            my = MAX(p1y, p2y);
+            lz = MIN(p1z, p2z);
+            mz = MAX(p1z, p2z);
+
+            for (int px = lx; px <= mx; px++) {
+                for (int py = ly; py <= my; py++) {
+                    for (int pz = lz; pz <= mz; pz++) {
+                        int tx = px - lx;
+                        int ty = py - ly;
+                        int tz = pz - lz;
+                        copyBuffer[tx][ty][tz] = get_block(chunks, chunk_count, px, py, pz);
+                    }
+                }
+            }
+        }
+
+        if (paste) {
+            paste = 0;
+            int hx, hy, hz;
+            int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
+                &hx, &hy, &hz);
+
+            for (int px = lx; px <= mx; px++) {
+                for (int py = ly; py <= my; py++) {
+                    for (int pz = lz; pz <= mz; pz++) {
+                        int tx = px - lx;
+                        int ty = py - ly;
+                        int tz = pz - lz;
+                        int btype = copyBuffer[tx][ty][tz];
+                        if (btype) set_block(chunks, chunk_count, tx + hx, ty + hy, tz + hz, btype, 1);
+                    }
+                }
+            }
+        }
+
+        if (flood) {
+            flood = 0;
+            int hx, hy, hz;
+            int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
+                &hx, &hy, &hz);
+
+            floodfill(chunks, chunk_count, hx, hy, hz, get_block(chunks, chunk_count, hx, hy, hz), block_type);
+        }
+
 
         if (teleport) {
             teleport = 0;
@@ -1231,6 +1415,31 @@ int main(int argc, char **argv) {
         // RENDER 2-D HUD PARTS //
 
         glClear(GL_DEPTH_BUFFER_BIT);
+        // highlight selected block #1
+        glDisable(GL_DEPTH_TEST);
+        glBlendColor(1.0f, 0.0f, 0.0f, 1.0f);
+        glEnable(GL_BLEND);
+
+        glUseProgram(line_program);
+        glLineWidth(4);
+        glUniformMatrix4fv(line_matrix_loc, 1, GL_FALSE, matrix);
+        GLuint wireframe_buffer = gen_wireframe_buffer(p1x, p1y, p1z, 0.51);
+        draw_lines(wireframe_buffer, line_position_loc, 3, 48);
+        glDeleteBuffers(1, &wireframe_buffer);
+
+        // highlight selected block #2
+        glUseProgram(line_program);
+        glLineWidth(2);
+        glUniformMatrix4fv(line_matrix_loc, 1, GL_FALSE, matrix);
+        GLuint wireframe_buffer2 = gen_wireframe_buffer(p2x, p2y, p2z, 0.51);
+        draw_lines(wireframe_buffer2, line_position_loc, 3, 48);
+        glDeleteBuffers(1, &wireframe_buffer2);
+
+        glEnable(GL_DEPTH_TEST);
+
+
+
+
         set_matrix_2d(matrix, width, height);
 
         // render crosshairs
