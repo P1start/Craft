@@ -47,6 +47,8 @@ static int copy = 0;
 static int paste = 0;
 static int flood = 0;
 static int command_done = 0;
+static int copyBuffer[100][100][100];
+static int lx, ly, lz, mx, my, mz;
 
 static int p1x = 0;
 static int p1y = -1000;
@@ -768,7 +770,7 @@ void build_sphere(Chunk *chunks, int chunk_count, int hx, int hy, int hz, int ra
     }
 }
 
-void build_cuboid(Chunk *chunks, int chunk_count, int p1x, int p1y, int p2x, int p2y, int block_type) {
+void build_cuboid(Chunk *chunks, int chunk_count, int block_type) {
     macro3 = 0;
     int lx = MIN(p1x, p2x);
     int mx = MAX(p1x, p2x);
@@ -786,7 +788,7 @@ void build_cuboid(Chunk *chunks, int chunk_count, int p1x, int p1y, int p2x, int
     }
 }
 
-void build_line(Chunk *chunks, int chunk_count, int p1x, int p1y, int p2x, int p2y, int block_type) {
+void build_line(Chunk *chunks, int chunk_count, int block_type) {
     macro2 = 0;
 #define plot(x,y,z) set_block(chunks, chunk_count, x, y, z, block_type)
     float px = (float)p1x;
@@ -821,6 +823,41 @@ void build_fill(Chunk *chunks, int chunk_count, int x, int y, int z, int match, 
     build_fill(chunks, chunk_count, x, y - 1, z, match, block_type);
     build_fill(chunks, chunk_count, x, y, z + 1, match, block_type);
     build_fill(chunks, chunk_count, x, y, z - 1, match, block_type);
+}
+
+void build_copy(Chunk *chunks, int chunk_count) {
+    copy = 0;
+    lx = MIN(p1x, p2x);
+    mx = MAX(p1x, p2x);
+    ly = MIN(p1y, p2y);
+    my = MAX(p1y, p2y);
+    lz = MIN(p1z, p2z);
+    mz = MAX(p1z, p2z);
+
+    for (int px = lx; px <= mx; px++) {
+        for (int py = ly; py <= my; py++) {
+            for (int pz = lz; pz <= mz; pz++) {
+                int tx = px - lx;
+                int ty = py - ly;
+                int tz = pz - lz;
+                copyBuffer[tx][ty][tz] = get_block(chunks, chunk_count, px, py, pz);
+            }
+        }
+    }
+}
+
+void build_paste(Chunk *chunks, int chunk_count, int hx, int hy, int hz) {
+    for (int px = lx; px <= mx; px++) {
+        for (int py = ly; py <= my; py++) {
+            for (int pz = lz; pz <= mz; pz++) {
+                int tx = px - lx;
+                int ty = py - ly;
+                int tz = pz - lz;
+                int btype = copyBuffer[tx][ty][tz];
+                if (btype) set_block(chunks, chunk_count, tx + hx, ty + hy, tz + hz, btype);
+            }
+        }
+    }
 }
 
 void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -1244,18 +1281,25 @@ int main(int argc, char **argv) {
                         &hx, &hy, &hz);
                     build_sphere(chunks, chunk_count, hx, hy, hz, arg1, block_type);
                 } else if (strcmp(command, "cuboid") == 0) {
-                    build_cuboid(chunks, chunk_count, p1x, p1y, p2x, p2y, block_type);
+                    build_cuboid(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "line") == 0) {
-                    build_line(chunks, chunk_count, p1x, p1y, p2x, p2y, block_type);
-                } else if(strcmp(command, "fill") == 0) {
+                    build_line(chunks, chunk_count, block_type);
+                } else if (strcmp(command, "fill") == 0) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_fill(chunks, chunk_count, hx, hy, hz, hw, block_type);
-                } else if(strcmp(command, "tp") == 0) {
+                } else if (strcmp(command, "tp") == 0) {
                     x = arg1;
                     y = arg2;
                     z = arg3;
+                } else if (strcmp(command, "copy") == 0) {
+                    build_copy(chunks, chunk_count);
+                } else if (strcmp(command, "paste") == 0) {
+                    int hx, hy, hz;
+                    int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
+                        &hx, &hy, &hz);
+                    build_paste(chunks, chunk_count, hx, hy, hz);
                 }
             }
         }
@@ -1280,27 +1324,9 @@ int main(int argc, char **argv) {
             }
         }
 
-        int copyBuffer[100][100][100];
-        int lx, ly, lz, mx, my, mz;
         if (copy) {
             copy = 0;
-            lx = MIN(p1x, p2x);
-            mx = MAX(p1x, p2x);
-            ly = MIN(p1y, p2y);
-            my = MAX(p1y, p2y);
-            lz = MIN(p1z, p2z);
-            mz = MAX(p1z, p2z);
-
-            for (int px = lx; px <= mx; px++) {
-                for (int py = ly; py <= my; py++) {
-                    for (int pz = lz; pz <= mz; pz++) {
-                        int tx = px - lx;
-                        int ty = py - ly;
-                        int tz = pz - lz;
-                        copyBuffer[tx][ty][tz] = get_block(chunks, chunk_count, px, py, pz);
-                    }
-                }
-            }
+            build_copy(chunks, chunk_count);
         }
 
         if (paste) {
@@ -1308,18 +1334,7 @@ int main(int argc, char **argv) {
             int hx, hy, hz;
             int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
                 &hx, &hy, &hz);
-
-            for (int px = lx; px <= mx; px++) {
-                for (int py = ly; py <= my; py++) {
-                    for (int pz = lz; pz <= mz; pz++) {
-                        int tx = px - lx;
-                        int ty = py - ly;
-                        int tz = pz - lz;
-                        int btype = copyBuffer[tx][ty][tz];
-                        if (btype) set_block(chunks, chunk_count, tx + hx, ty + hy, tz + hz, btype);
-                    }
-                }
-            }
+            build_paste(chunks, chunk_count, hx, hy, hz);
         }
 
         if (teleport) {
