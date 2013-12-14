@@ -49,10 +49,10 @@ static int flood = 0;
 static int command_done = 0;
 
 static int p1x = 0;
-static int p1y = 0;
+static int p1y = -1000;
 static int p1z = 0;
 static int p2x = 0;
-static int p2y = 0;
+static int p2y = -1000;
 static int p2z = 0;
 
 typedef struct {
@@ -1233,41 +1233,51 @@ int main(int argc, char **argv) {
         if (command_done) {
             command_done = 0;
             int success;
-            int arg1;
+            int arg1, arg2, arg3;
             char command[127];
             char *buildc = typing_buffer + 1;
-            success = sscanf(buildc, "%s %d", command, &arg1);
+            success = sscanf(buildc, "%s %d %d %d", command, &arg1, &arg2, &arg3);
             if (success != -1) {
                 if (strcmp(command, "sphere") == 0) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_sphere(chunks, chunk_count, hx, hy, hz, arg1, block_type);
-                    goto end_build;
                 } else if (strcmp(command, "cuboid") == 0) {
                     build_cuboid(chunks, chunk_count, p1x, p1y, p2x, p2y, block_type);
-                    goto end_build;
                 } else if (strcmp(command, "line") == 0) {
                     build_line(chunks, chunk_count, p1x, p1y, p2x, p2y, block_type);
-                    goto end_build;
                 } else if(strcmp(command, "fill") == 0) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_fill(chunks, chunk_count, hx, hy, hz, hw, block_type);
+                } else if(strcmp(command, "tp") == 0) {
+                    x = arg1;
+                    y = arg2;
+                    z = arg3;
                 }
             }
         }
-end_build:
 
         if (glfwGetKey(window, ';')) {
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                 &p1x, &p1y, &p1z);
+            if (p2y < -500) {
+                p2x = p1x;
+                p2y = p1y;
+                p2z = p1z;
+            }
         }
 
         if (glfwGetKey(window, '\'')) {
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                 &p2x, &p2y, &p2z);
+            if (p1y < -500) {
+                p1x = p2x;
+                p1y = p2y;
+                p1z = p2z;
+            }
         }
 
         int copyBuffer[100][100][100];
