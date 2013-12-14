@@ -1159,7 +1159,7 @@ int main(int argc, char **argv) {
             int hx, hy, hz;
             int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
                 &hx, &hy, &hz);
-            if (is_obstacle(hw)) {
+            if (hy > 0 && hy < 256 && is_obstacle(hw)) {
                 if (1 || !player_intersects_block(2, x, y, z, hx, hy, hz)) {
                     set_block(chunks, chunk_count, hx, hy, hz, block_type);
                 }
