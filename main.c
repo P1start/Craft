@@ -46,6 +46,7 @@ static int macro3 = 0;
 static int copy = 0;
 static int paste = 0;
 static int flood = 0;
+static int command_done = 0;
 
 static int p1x = 0;
 static int p1y = 0;
@@ -753,6 +754,75 @@ int get_block(
     return 0;
 }
 
+void build_sphere(Chunk *chunks, int chunk_count, int hx, int hy, int hz, int radius, int block_type) {
+    for (int px = -radius; px <= radius; px++) {
+        for (int py = -radius; py <= radius; py++) {
+            for (int pz = -radius; pz <= radius; pz++) {
+                if (   px*px + py*py + pz*pz >= (radius*(radius - 1))
+                    && px*px + py*py + pz*pz <= (radius*(radius + 1))
+                    && get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0) {
+                    set_block(chunks, chunk_count, px + hx, py + hy, pz + hz, block_type);
+                }
+            }
+        }
+    }
+}
+
+void build_cuboid(Chunk *chunks, int chunk_count, int p1x, int p1y, int p2x, int p2y, int block_type) {
+    macro3 = 0;
+    int lx = MIN(p1x, p2x);
+    int mx = MAX(p1x, p2x);
+    int ly = MIN(p1y, p2y);
+    int my = MAX(p1y, p2y);
+    int lz = MIN(p1z, p2z);
+    int mz = MAX(p1z, p2z);
+
+    for (int px = lx; px <= mx; px++) {
+        for (int py = ly; py <= my; py++) {
+            for (int pz = lz; pz <= mz; pz++) {
+                set_block(chunks, chunk_count, px, py, pz, block_type);
+            }
+        }
+    }
+}
+
+void build_line(Chunk *chunks, int chunk_count, int p1x, int p1y, int p2x, int p2y, int block_type) {
+    macro2 = 0;
+#define plot(x,y,z) set_block(chunks, chunk_count, x, y, z, block_type)
+    float px = (float)p1x;
+    float py = (float)p1y;
+    float pz = (float)p1z;
+
+    float dx = p2x - p1x;
+    float dy = p2y - p1y;
+    float dz = p2z - p1z;
+    float N = MAX(MAX(abs(dx), abs(dy)), abs(dz));
+    float sx = dx / N;
+    float sy = dy / N;
+    float sz = dz / N;
+
+    plot(p1x, p1y, p1z);
+    for (int i = 1; i <= N; i++) {
+        px += sx;
+        py += sy;
+        pz += sz;
+        plot(round(px), round(py), round(pz));
+    }
+}
+
+void build_fill(Chunk *chunks, int chunk_count, int x, int y, int z, int match, int block_type) {
+    if (match == 0) return;
+    if (match == block_type) return;
+    if (get_block(chunks, chunk_count, x, y, z) != match) return;
+    set_block(chunks, chunk_count, x, y, z, block_type);
+    build_fill(chunks, chunk_count, x + 1, y, z, match, block_type);
+    build_fill(chunks, chunk_count, x - 1, y, z, match, block_type);
+    build_fill(chunks, chunk_count, x, y + 1, z, match, block_type);
+    build_fill(chunks, chunk_count, x, y - 1, z, match, block_type);
+    build_fill(chunks, chunk_count, x, y, z + 1, match, block_type);
+    build_fill(chunks, chunk_count, x, y, z - 1, match, block_type);
+}
+
 void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (action != GLFW_PRESS) {
         return;
@@ -769,7 +839,11 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ENTER) {
         if (typing) {
             typing = 0;
-            client_talk(typing_buffer);
+            if (typing_buffer[0] != '~') {
+                client_talk(typing_buffer);
+            } else {
+                command_done = 1;
+            }
         }
         else {
             if (mods & GLFW_MOD_SUPER) {
@@ -801,23 +875,11 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         if (key == CRAFT_KEY_BLOCK_TYPE) {
             block_type = ((block_type+2) % 13) - 1;
         }
-        if (key == 'R') {
-            macro1 = 1;
-        }
-        if (key == 'G') {
-            macro2 = 1;
-        }
-        if (key == 'H') {
-            macro3 = 1;
-        }
         if (key == '[') {
             copy = 1;
         }
         if (key == ']') {
             paste = 1;
-        }
-        if (key == 'Y') {
-            flood = 1;
         }
     }
 }
@@ -841,6 +903,11 @@ void on_char(GLFWwindow *window, unsigned int u) {
         if (u == CRAFT_KEY_COMMAND) {
             typing = 1;
             typing_buffer[0] = '/';
+            typing_buffer[1] = '\0';
+        }
+        if (u == '`') {
+            typing = 1;
+            typing_buffer[0] = '~';
             typing_buffer[1] = '\0';
         }
     }
@@ -907,19 +974,6 @@ void create_window() {
         height = modes[mode_count - 1].height;
     }
     window = glfwCreateWindow(width, height, "Craft", monitor, NULL);
-}
-
-void floodfill(Chunk *chunks, int chunk_count, int x, int y, int z, int match, int block_type) {
-    if (match == 0) return;
-    if (match == block_type) return;
-    if (get_block(chunks, chunk_count, x, y, z) != match) return;
-    set_block(chunks, chunk_count, x, y, z, block_type);
-    floodfill(chunks, chunk_count, x + 1, y, z, match, block_type);
-    floodfill(chunks, chunk_count, x - 1, y, z, match, block_type);
-    floodfill(chunks, chunk_count, x, y + 1, z, match, block_type);
-    floodfill(chunks, chunk_count, x, y - 1, z, match, block_type);
-    floodfill(chunks, chunk_count, x, y, z + 1, match, block_type);
-    floodfill(chunks, chunk_count, x, y, z - 1, match, block_type);
 }
 
 int main(int argc, char **argv) {
@@ -1176,26 +1230,35 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (macro1) {
-            macro1 = 0;
-            int hx, hy, hz;
-            int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
-                &hx, &hy, &hz);
-            const int RADIUS = 20;
-            for (int px = -RADIUS; px <= RADIUS; px++) {
-                for (int py = -RADIUS; py <= RADIUS; py++) {
-                    for (int pz = -RADIUS; pz <= RADIUS; pz++) {
-                        if (   px*px + py*py + pz*pz >= (RADIUS*(RADIUS - 1))
-                            && px*px + py*py + pz*pz <= (RADIUS*(RADIUS + 1))
-                            && get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0
-                         || block_type == 0
-                            && px*px + py*py + pz*pz <= RADIUS*(RADIUS + 1)) {
-                            set_block(chunks, chunk_count, px + hx, py + hy, pz + hz, block_type);
-                        }
-                    }
+        if (command_done) {
+            command_done = 0;
+            int success;
+            int arg1;
+            char command[127];
+            char *buildc = typing_buffer + 1;
+            success = sscanf(buildc, "%s %d", command, &arg1);
+            if (success != -1) {
+                if (strcmp(command, "sphere") == 0) {
+                    int hx, hy, hz;
+                    int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
+                        &hx, &hy, &hz);
+                    build_sphere(chunks, chunk_count, hx, hy, hz, arg1, block_type);
+                    goto end_build;
+                } else if (strcmp(command, "cuboid") == 0) {
+                    build_cuboid(chunks, chunk_count, p1x, p1y, p2x, p2y, block_type);
+                    goto end_build;
+                } else if (strcmp(command, "line") == 0) {
+                    build_line(chunks, chunk_count, p1x, p1y, p2x, p2y, block_type);
+                    goto end_build;
+                } else if(strcmp(command, "fill") == 0) {
+                    int hx, hy, hz;
+                    int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
+                        &hx, &hy, &hz);
+                    build_fill(chunks, chunk_count, hx, hy, hz, hw, block_type);
                 }
             }
         }
+end_build:
 
         if (glfwGetKey(window, ';')) {
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
@@ -1205,48 +1268,6 @@ int main(int argc, char **argv) {
         if (glfwGetKey(window, '\'')) {
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                 &p2x, &p2y, &p2z);
-        }
-
-        if (macro2) {
-            macro2 = 0;
-#define plot(x,y,z) set_block(chunks, chunk_count, x, y, z, block_type)
-            float px = (float)p1x;
-            float py = (float)p1y;
-            float pz = (float)p1z;
-
-            float dx = p2x - p1x;
-            float dy = p2y - p1y;
-            float dz = p2z - p1z;
-            float N = MAX(MAX(abs(dx), abs(dy)), abs(dz));
-            float sx = dx / N;
-            float sy = dy / N;
-            float sz = dz / N;
-
-            plot(p1x, p1y, p1z);
-            for (int i = 1; i <= N; i++) {
-                px += sx;
-                py += sy;
-                pz += sz;
-                plot(round(px), round(py), round(pz));
-            }
-        }
-
-        if (macro3) {
-            macro3 = 0;
-            int lx = MIN(p1x, p2x);
-            int mx = MAX(p1x, p2x);
-            int ly = MIN(p1y, p2y);
-            int my = MAX(p1y, p2y);
-            int lz = MIN(p1z, p2z);
-            int mz = MAX(p1z, p2z);
-
-            for (int px = lx; px <= mx; px++) {
-                for (int py = ly; py <= my; py++) {
-                    for (int pz = lz; pz <= mz; pz++) {
-                        set_block(chunks, chunk_count, px, py, pz, block_type);
-                    }
-                }
-            }
         }
 
         int copyBuffer[100][100][100];
@@ -1290,16 +1311,6 @@ int main(int argc, char **argv) {
                 }
             }
         }
-
-        if (flood) {
-            flood = 0;
-            int hx, hy, hz;
-            int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
-                &hx, &hy, &hz);
-
-            floodfill(chunks, chunk_count, hx, hy, hz, get_block(chunks, chunk_count, hx, hy, hz), block_type);
-        }
-
 
         if (teleport) {
             teleport = 0;
