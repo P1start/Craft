@@ -9,7 +9,6 @@
 #include <string.h>
 #include <time.h>
 #include "client.h"
-#include "common.h"
 #include "config.h"
 #include "cube.h"
 #include "db.h"
@@ -959,7 +958,7 @@ int main(int argc, char **argv) {
         }
     #endif
 
-    if (db_init()) {
+    if (db_init(DB_PATH)) {
         return -1;
     }
 
