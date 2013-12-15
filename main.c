@@ -1285,27 +1285,27 @@ int main(int argc, char **argv) {
             char *buildc = typing_buffer + 1;
             success = sscanf(buildc, "%s %d %d %d", command, &arg1, &arg2, &arg3);
             if (success != -1) {
-                if (strcmp(command, "sphere") == 0) {
+                if (strcmp(command, "sphere") == 0 && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_sphere(chunks, chunk_count, hx, hy, hz, arg1, block_type);
-                } else if (strcmp(command, "cuboid") == 0) {
+                } else if (strcmp(command, "cuboid") == 0 && success == 1) {
                     build_cuboid(chunks, chunk_count, block_type);
-                } else if (strcmp(command, "line") == 0) {
+                } else if (strcmp(command, "line") == 0 && success == 1) {
                     build_line(chunks, chunk_count, block_type);
-                } else if (strcmp(command, "fill") == 0) {
+                } else if (strcmp(command, "fill") == 0 && success == 1) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_fill(chunks, chunk_count, hx, hy, hz, hw, block_type);
-                } else if (strcmp(command, "tp") == 0) {
+                } else if (strcmp(command, "tp") == 0 && success == 4) {
                     x = arg1;
                     y = arg2;
                     z = arg3;
-                } else if (strcmp(command, "copy") == 0) {
+                } else if (strcmp(command, "copy") == 0 && success == 1) {
                     build_copy(chunks, chunk_count);
-                } else if (strcmp(command, "paste") == 0) {
+                } else if (strcmp(command, "paste") == 0 && success == 1) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
                         &hx, &hy, &hz);
