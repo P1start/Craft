@@ -21,7 +21,7 @@ typedef struct {
 
 int rand_int(int n);
 double rand_double();
-void update_fps(FPS *fps, int show);
+int update_fps(FPS *fps, int show);
 
 void malloc_buffers(
     int components, int faces,
