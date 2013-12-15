@@ -25,6 +25,8 @@
 #define DELETE_CHUNK_RADIUS 12
 #define RECV_BUFFER_SIZE 1024
 #define TEXT_BUFFER_SIZE 256
+#define HELP_TEXT_1 "Commands: ~sphere <RADIUS>, ~cuboid, ~line, ~help,"
+#define HELP_TEXT_2 "          ~tp <x> <y> <z>, ~fill, ~copy, ~paste"
 
 static GLFWwindow *window;
 static int exclusive = 1;
@@ -1302,6 +1304,11 @@ int main(int argc, char **argv) {
                     int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_paste(chunks, chunk_count, hx, hy, hz);
+                } else if (strcmp(command, "help") == 0) {
+                    snprintf(messages[message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_1);
+                    message_index = (message_index + 1) % MAX_MESSAGES;
+                    snprintf(messages[message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_2);
+                    message_index = (message_index + 1) % MAX_MESSAGES;
                 }
             }
         }
