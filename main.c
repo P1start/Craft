@@ -28,7 +28,7 @@
 #define INTRO_TEXT_1 "Foocraft version 0.1"
 #define INTRO_TEXT_2 "Type ~help for help."
 #define HELP_TEXT_1 "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line, ~help,"
-#define HELP_TEXT_2 "                ~tp <X> <Y> <Z>, ~fill, ~copy, ~paste"
+#define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste"
 
 static GLFWwindow *window;
 static int exclusive = 1;
@@ -827,6 +827,88 @@ void build_cuboid_hollow(Chunk *chunks, int chunk_count, int block_type) {
         }
     }
 }
+
+void build_pyramid(Chunk *chunks, int chunk_count, int block_type) {
+    int old_p1x = p1x;
+    int old_p1y = p1y;
+    int old_p1z = p1z;
+    int old_p2x = p2x;
+    int old_p2y = p2y;
+    int old_p2z = p2z;
+
+    int y = p1y;
+    int x1 = MIN(p1x, p2x);
+    int x2 = MAX(p1x, p2x);
+    int z1 = MIN(p1z, p2z);
+    int z2 = MAX(p1z, p2z);
+    while (x2 >= x1 && z2 >= z1) {
+        p1x = x1;
+        p1y = y;
+        p1z = z1;
+        p2x = x2;
+        p2y = y;
+        p2z = z2;
+        build_cuboid(chunks, chunk_count, block_type);
+        y += 1;
+        x1 += 1;
+        x2 -= 1;
+        z1 += 1;
+        z2 -= 1;
+    }
+    p1x = old_p1x;
+    p1y = old_p1y;
+    p1z = old_p1z;
+    p2x = old_p2x;
+    p2y = old_p2y;
+    p2z = old_p2z;
+}
+
+void build_square_outline(Chunk *chunks, int chunk_count, int block_type) {
+    
+}
+
+void build_pyramid_hollow(Chunk *chunks, int chunk_count, int block_type) {
+    int old_p1x = p1x;
+    int old_p1y = p1y;
+    int old_p1z = p1z;
+    int old_p2x = p2x;
+    int old_p2y = p2y;
+    int old_p2z = p2z;
+
+    int y = p1y;
+    int my = y;
+    int x1 = MIN(p1x, p2x);
+    int x2 = MAX(p1x, p2x);
+    int z1 = MIN(p1z, p2z);
+    int z2 = MAX(p1z, p2z);
+    while (x2 >= x1 && z2 >= z1) {
+        p1x = x1;
+        p1y = y;
+        p1z = z1;
+        p2x = x2;
+        p2y = y;
+        p2z = z2;
+        for (int px = x1; px <= x2; px++) {
+            for (int pz = z1; pz <= z2; pz++) {
+                if (pz == z1 || pz == z2 || px == x1 || px == x2 || y == my) {
+                    set_block(chunks, chunk_count, px, y, pz, block_type);
+                }
+            }
+        }
+        y += 1;
+        x1 += 1;
+        x2 -= 1;
+        z1 += 1;
+        z2 -= 1;
+    }
+    p1x = old_p1x;
+    p1y = old_p1y;
+    p1z = old_p1z;
+    p2x = old_p2x;
+    p2y = old_p2y;
+    p2z = old_p2z;
+}
+
 void build_line(Chunk *chunks, int chunk_count, int block_type) {
     macro2 = 0;
 #define plot(x,y,z) set_block(chunks, chunk_count, x, y, z, block_type)
@@ -1360,6 +1442,10 @@ int main(int argc, char **argv) {
                     build_cuboid(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "cuboid-hollow") == 0 && success == 1) {
                     build_cuboid_hollow(chunks, chunk_count, block_type);
+                } else if (strcmp(command, "pyramid") == 0 && success == 1) {
+                    build_pyramid(chunks, chunk_count, block_type);
+                } else if (strcmp(command, "pyramid-hollow") == 0 && success == 1) {
+                    build_pyramid_hollow(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "line") == 0 && success == 1) {
                     build_line(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "fill") == 0 && success == 1) {
@@ -1367,10 +1453,6 @@ int main(int argc, char **argv) {
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_fill(chunks, chunk_count, hx, hy, hz, hw, block_type);
-                } else if (strcmp(command, "tp") == 0 && success == 4) {
-                    x = arg1;
-                    y = arg2;
-                    z = arg3;
                 } else if (strcmp(command, "copy") == 0 && success == 1) {
                     build_copy(chunks, chunk_count);
                 } else if (strcmp(command, "paste") == 0 && success == 1) {
