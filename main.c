@@ -28,7 +28,9 @@
 #define INTRO_TEXT_1 "Foocraft version 0.1"
 #define INTRO_TEXT_2 "Type ~help for help."
 #define HELP_TEXT_1 "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line, ~help,"
-#define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste"
+#define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste,"
+#define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2]"
+#define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
 
 static GLFWwindow *window;
 static int exclusive = 1;
@@ -988,10 +990,24 @@ void build_intro(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_ind
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
+void build_selection(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%dx%dx%d (%d, %d, %d; %d, %d, %d)",
+            abs(p1x - p2x), abs(p1y - p2y), abs(p1z - p2z),
+            p1x, p1y, p1z, p2x, p2y, p2z);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+}
+
 void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_2);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_3);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+}
+
+void build_unknown(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", UNKNOWN_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
@@ -1423,10 +1439,10 @@ int main(int argc, char **argv) {
         if (command_done) {
             command_done = 0;
             int success;
-            int arg1, arg2, arg3;
+            int arg1, arg2, arg3, arg4, arg5, arg6;
             char command[127];
             char *buildc = typing_buffer + 1;
-            success = sscanf(buildc, "%s %d %d %d", command, &arg1, &arg2, &arg3);
+            success = sscanf(buildc, "%s %d %d %d %d %d %d", command, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6);
             if (success != -1) {
                 if (strcmp(command, "sphere") == 0 && success == 2) {
                     int hx, hy, hz;
@@ -1460,8 +1476,19 @@ int main(int argc, char **argv) {
                     int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_paste(chunks, chunk_count, hx, hy, hz);
+                } else if (strcmp(command, "selection") == 0 && success == 1) {
+                    build_selection(messages, &message_index);
+                } else if (strcmp(command, "selection") == 0 && success == 7) {
+                    p1x = arg1;
+                    p1y = arg2;
+                    p1z = arg3;
+                    p2x = arg4;
+                    p2y = arg5;
+                    p2z = arg6;
                 } else if (strcmp(command, "help") == 0) {
                     build_help(messages, &message_index);
+                } else {
+                    build_unknown(messages, &message_index);
                 }
             }
         }
