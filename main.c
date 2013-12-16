@@ -27,8 +27,8 @@
 #define TEXT_BUFFER_SIZE 256
 #define INTRO_TEXT_1 "Foocraft version 0.1"
 #define INTRO_TEXT_2 "Type ~help for help."
-#define HELP_TEXT_1 "Build commands: ~sphere <RADIUS>, ~cuboid, ~line, ~help,"
-#define HELP_TEXT_2 "                ~tp <x> <y> <z>, ~fill, ~copy, ~paste"
+#define HELP_TEXT_1 "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line, ~help,"
+#define HELP_TEXT_2 "                ~tp <X> <Y> <Z>, ~fill, ~copy, ~paste"
 
 static GLFWwindow *window;
 static int exclusive = 1;
@@ -765,9 +765,24 @@ void build_sphere(Chunk *chunks, int chunk_count, int hx, int hy, int hz, int ra
     for (int px = -radius; px <= radius; px++) {
         for (int py = -radius; py <= radius; py++) {
             for (int pz = -radius; pz <= radius; pz++) {
-                if (   px*px + py*py + pz*pz >= (radius*(radius - 1))
-                    && px*px + py*py + pz*pz <= (radius*(radius + 1))
-                    && get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0) {
+                if (   px*px + py*py + pz*pz >= radius*(radius - 1)
+                    && px*px + py*py + pz*pz <= radius*(radius + 1)
+                    && (   get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0
+                        || block_type == 0)) {
+                    set_block(chunks, chunk_count, px + hx, py + hy, pz + hz, block_type);
+                }
+            }
+        }
+    }
+}
+
+void build_sphere_solid(Chunk *chunks, int chunk_count, int hx, int hy, int hz, int radius, int block_type) {
+    for (int px = -radius; px <= radius; px++) {
+        for (int py = -radius; py <= radius; py++) {
+            for (int pz = -radius; pz <= radius; pz++) {
+                if (   px*px + py*py + pz*pz <= radius*(radius + 1)
+                    && (   get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0
+                        || block_type == 0)) {
                     set_block(chunks, chunk_count, px + hx, py + hy, pz + hz, block_type);
                 }
             }
@@ -793,6 +808,25 @@ void build_cuboid(Chunk *chunks, int chunk_count, int block_type) {
     }
 }
 
+void build_cuboid_hollow(Chunk *chunks, int chunk_count, int block_type) {
+    macro3 = 0;
+    int lx = MIN(p1x, p2x);
+    int mx = MAX(p1x, p2x);
+    int ly = MIN(p1y, p2y);
+    int my = MAX(p1y, p2y);
+    int lz = MIN(p1z, p2z);
+    int mz = MAX(p1z, p2z);
+
+    for (int px = lx; px <= mx; px++) {
+        for (int py = ly; py <= my; py++) {
+            for (int pz = lz; pz <= mz; pz++) {
+                if (px == lx || py == ly || pz == lz || px == mx || py == my || pz == mz) {
+                    set_block(chunks, chunk_count, px, py, pz, block_type);
+                }
+            }
+        }
+    }
+}
 void build_line(Chunk *chunks, int chunk_count, int block_type) {
     macro2 = 0;
 #define plot(x,y,z) set_block(chunks, chunk_count, x, y, z, block_type)
@@ -1317,8 +1351,15 @@ int main(int argc, char **argv) {
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_sphere(chunks, chunk_count, hx, hy, hz, arg1, block_type);
+                } else if (strcmp(command, "sphere-solid") == 0 && success == 2) {
+                    int hx, hy, hz;
+                    int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
+                        &hx, &hy, &hz);
+                    build_sphere_solid(chunks, chunk_count, hx, hy, hz, arg1, block_type);
                 } else if (strcmp(command, "cuboid") == 0 && success == 1) {
                     build_cuboid(chunks, chunk_count, block_type);
+                } else if (strcmp(command, "cuboid-hollow") == 0 && success == 1) {
+                    build_cuboid_hollow(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "line") == 0 && success == 1) {
                     build_line(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "fill") == 0 && success == 1) {
