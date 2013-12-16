@@ -27,7 +27,8 @@
 #define TEXT_BUFFER_SIZE 256
 #define INTRO_TEXT_1 "Foocraft version 0.1"
 #define INTRO_TEXT_2 "Type ~help for help."
-#define HELP_TEXT_1 "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line, ~help,"
+#define HELP_TEXT_1 \
+    "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line, ~help,"
 #define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste,"
 #define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2]"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
@@ -763,29 +764,35 @@ int get_block(
     return 0;
 }
 
-void build_sphere(Chunk *chunks, int chunk_count, int hx, int hy, int hz, int radius, int block_type) {
+void build_sphere(Chunk *chunks, int chunk_count,
+        int hx, int hy, int hz, int radius, int block_type) {
     for (int px = -radius; px <= radius; px++) {
         for (int py = -radius; py <= radius; py++) {
             for (int pz = -radius; pz <= radius; pz++) {
                 if (   px*px + py*py + pz*pz >= radius*(radius - 1)
                     && px*px + py*py + pz*pz <= radius*(radius + 1)
-                    && (   get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0
+                    && (   get_block(chunks, chunk_count,
+                                     px + hx, py + hy, pz + hz) == 0
                         || block_type == 0)) {
-                    set_block(chunks, chunk_count, px + hx, py + hy, pz + hz, block_type);
+                    set_block(chunks, chunk_count,
+                            px + hx, py + hy, pz + hz, block_type);
                 }
             }
         }
     }
 }
 
-void build_sphere_solid(Chunk *chunks, int chunk_count, int hx, int hy, int hz, int radius, int block_type) {
+void build_sphere_solid(Chunk *chunks, int chunk_count,
+        int hx, int hy, int hz, int radius, int block_type) {
     for (int px = -radius; px <= radius; px++) {
         for (int py = -radius; py <= radius; py++) {
             for (int pz = -radius; pz <= radius; pz++) {
                 if (   px*px + py*py + pz*pz <= radius*(radius + 1)
-                    && (   get_block(chunks, chunk_count, px + hx, py + hy, pz + hz) == 0
+                    && (   get_block(chunks, chunk_count,
+                            px + hx, py + hy, pz + hz) == 0
                         || block_type == 0)) {
-                    set_block(chunks, chunk_count, px + hx, py + hy, pz + hz, block_type);
+                    set_block(chunks, chunk_count,
+                            px + hx, py + hy, pz + hz, block_type);
                 }
             }
         }
@@ -822,7 +829,8 @@ void build_cuboid_hollow(Chunk *chunks, int chunk_count, int block_type) {
     for (int px = lx; px <= mx; px++) {
         for (int py = ly; py <= my; py++) {
             for (int pz = lz; pz <= mz; pz++) {
-                if (px == lx || py == ly || pz == lz || px == mx || py == my || pz == mz) {
+                if (px == lx || py == ly || pz == lz || px == mx || py == my
+                        || pz == mz) {
                     set_block(chunks, chunk_count, px, py, pz, block_type);
                 }
             }
@@ -935,7 +943,8 @@ void build_line(Chunk *chunks, int chunk_count, int block_type) {
     }
 }
 
-void build_fill(Chunk *chunks, int chunk_count, int x, int y, int z, int match, int block_type) {
+void build_fill(Chunk *chunks, int chunk_count,
+        int x, int y, int z, int match, int block_type) {
     if (match == 0) return;
     if (match == block_type) return;
     if (get_block(chunks, chunk_count, x, y, z) != match) return;
@@ -963,7 +972,8 @@ void build_copy(Chunk *chunks, int chunk_count) {
                 int tx = px - lx;
                 int ty = py - ly;
                 int tz = pz - lz;
-                copyBuffer[tx][ty][tz] = get_block(chunks, chunk_count, px, py, pz);
+                copyBuffer[tx][ty][tz] = get_block(chunks, chunk_count,
+                        px, py, pz);
             }
         }
     }
@@ -977,27 +987,32 @@ void build_paste(Chunk *chunks, int chunk_count, int hx, int hy, int hz) {
                 int ty = py - ly;
                 int tz = pz - lz;
                 int btype = copyBuffer[tx][ty][tz];
-                if (btype) set_block(chunks, chunk_count, tx + hx, ty + hy, tz + hz, btype);
+                if (btype) set_block(chunks, chunk_count,
+                        tx + hx, ty + hy, tz + hz, btype);
             }
         }
     }
 }
 
-void build_intro(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
+void build_intro(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+        int *message_index) {
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", INTRO_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", INTRO_TEXT_2);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void build_selection(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%dx%dx%d (%d, %d, %d; %d, %d, %d)",
+void build_selection(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+        int *message_index) {
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE,
+            "%dx%dx%d (%d, %d, %d; %d, %d, %d)",
             abs(p1x - p2x), abs(p1y - p2y), abs(p1z - p2z),
             p1x, p1y, p1z, p2x, p2y, p2z);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
+void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+        int *message_index) {
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_2);
@@ -1006,7 +1021,8 @@ void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_inde
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void build_unknown(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
+void build_unknown(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+        int *message_index) {
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", UNKNOWN_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
@@ -1375,7 +1391,8 @@ int main(int argc, char **argv) {
                 vx = 0; vy = 0; vz = 1;
             }
         }
-        float speed = (flying ? 20 : 5) * (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) ? 4 : 1);
+        float speed = (flying ? 20 : 5) * 
+                      (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) ? 4 : 1);
         int step = 8;
         float ut = dt / step;
         vx = vx * ut * speed;
@@ -1442,25 +1459,31 @@ int main(int argc, char **argv) {
             int arg1, arg2, arg3, arg4, arg5, arg6;
             char command[127];
             char *buildc = typing_buffer + 1;
-            success = sscanf(buildc, "%s %d %d %d %d %d %d", command, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6);
+            success = sscanf(buildc, "%s %d %d %d %d %d %d", command,
+                    &arg1, &arg2, &arg3, &arg4, &arg5, &arg6);
             if (success != -1) {
                 if (strcmp(command, "sphere") == 0 && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
-                    build_sphere(chunks, chunk_count, hx, hy, hz, arg1, block_type);
-                } else if (strcmp(command, "sphere-solid") == 0 && success == 2) {
+                    build_sphere(chunks, chunk_count,
+                            hx, hy, hz, arg1, block_type);
+                } else if (strcmp(command, "sphere-solid") == 0
+                        && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
-                    build_sphere_solid(chunks, chunk_count, hx, hy, hz, arg1, block_type);
+                    build_sphere_solid(chunks, chunk_count,
+                            hx, hy, hz, arg1, block_type);
                 } else if (strcmp(command, "cuboid") == 0 && success == 1) {
                     build_cuboid(chunks, chunk_count, block_type);
-                } else if (strcmp(command, "cuboid-hollow") == 0 && success == 1) {
+                } else if (strcmp(command, "cuboid-hollow") == 0
+                        && success == 1) {
                     build_cuboid_hollow(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "pyramid") == 0 && success == 1) {
                     build_pyramid(chunks, chunk_count, block_type);
-                } else if (strcmp(command, "pyramid-hollow") == 0 && success == 1) {
+                } else if (strcmp(command, "pyramid-hollow") == 0
+                        && success == 1) {
                     build_pyramid_hollow(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "line") == 0 && success == 1) {
                     build_line(chunks, chunk_count, block_type);
