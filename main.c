@@ -25,8 +25,10 @@
 #define DELETE_CHUNK_RADIUS 12
 #define RECV_BUFFER_SIZE 1024
 #define TEXT_BUFFER_SIZE 256
-#define HELP_TEXT_1 "Commands: ~sphere <RADIUS>, ~cuboid, ~line, ~help,"
-#define HELP_TEXT_2 "          ~tp <x> <y> <z>, ~fill, ~copy, ~paste"
+#define INTRO_TEXT_1 "Foocraft version 0.1"
+#define INTRO_TEXT_2 "Type ~help for help."
+#define HELP_TEXT_1 "Build commands: ~sphere <RADIUS>, ~cuboid, ~line, ~help,"
+#define HELP_TEXT_2 "                ~tp <x> <y> <z>, ~fill, ~copy, ~paste"
 
 static GLFWwindow *window;
 static int exclusive = 1;
@@ -863,6 +865,20 @@ void build_paste(Chunk *chunks, int chunk_count, int hx, int hy, int hz) {
     }
 }
 
+void build_intro(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", INTRO_TEXT_1);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", INTRO_TEXT_2);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+}
+
+void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE], int *message_index) {
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_1);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_2);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+}
+
 void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (action != GLFW_PRESS) {
         return;
@@ -1143,6 +1159,7 @@ int main(int argc, char **argv) {
 
     glfwGetCursorPos(window, &px, &py);
     double previous = glfwGetTime();
+    build_intro(messages, &message_index);
     while (!glfwWindowShouldClose(window)) {
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
@@ -1321,10 +1338,7 @@ int main(int argc, char **argv) {
                         &hx, &hy, &hz);
                     build_paste(chunks, chunk_count, hx, hy, hz);
                 } else if (strcmp(command, "help") == 0) {
-                    snprintf(messages[message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_1);
-                    message_index = (message_index + 1) % MAX_MESSAGES;
-                    snprintf(messages[message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_2);
-                    message_index = (message_index + 1) % MAX_MESSAGES;
+                    build_help(messages, &message_index);
                 }
             }
         }
