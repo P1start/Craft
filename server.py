@@ -224,10 +224,14 @@ class Model(object):
     def on_talk(self, client, *args):
         text = ','.join(args)
         if text.startswith('/'):
+            matched = False
             for pattern, func in self.patterns:
                 match = pattern.match(text)
                 if match:
+                    matched = True
                     func(client, *match.groups())
+            if not matched:
+                client.send(TALK, 'Unrecognized command: "%s"' % text)
         else:
             text = '%s> %s' % (client.nick, text)
             self.send_talk(client, text)
