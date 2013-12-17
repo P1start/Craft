@@ -6,7 +6,6 @@
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
 #define VSYNC 0
-#define SHOW_FPS 0
 #define SCROLL_THRESHOLD 0.1
 #define MAX_MESSAGES 6
 #define DB_PATH "craft.db"
