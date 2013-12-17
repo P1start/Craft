@@ -878,10 +878,6 @@ void build_pyramid(Chunk *chunks, int chunk_count, int block_type) {
     p2z = old_p2z;
 }
 
-void build_square_outline(Chunk *chunks, int chunk_count, int block_type) {
-    
-}
-
 void build_pyramid_hollow(Chunk *chunks, int chunk_count, int block_type) {
     int old_p1x = p1x;
     int old_p1y = p1y;
@@ -1395,7 +1391,7 @@ int main(int argc, char **argv) {
                 vx = 0; vy = 0; vz = 1;
             }
         }
-        float speed = (flying ? 20 : 5) * 
+        float speed = (flying ? 20 : 5) *
                       (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) ? 4 : 1);
         int step = 8;
         float ut = dt / step;
