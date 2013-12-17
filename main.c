@@ -30,7 +30,7 @@
 #define HELP_TEXT_1 \
     "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line, ~help,"
 #define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste,"
-#define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2]"
+#define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2], ~replace"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
 #define LEFT 0
 #define CENTER 1
@@ -59,6 +59,7 @@ static int flood = 0;
 static int command_done = 0;
 static int copyBuffer[100][100][100];
 static int lx, ly, lz, mx, my, mz;
+static int replace = 0;
 
 static int p1x = 0;
 static int p1y = -1000;
@@ -1434,7 +1435,7 @@ int main(int argc, char **argv) {
         if (right_click) {
             right_click = 0;
             int hx, hy, hz;
-            int hw = hit_test(chunks, chunk_count, 1, x, y, z, rx, ry,
+            int hw = hit_test(chunks, chunk_count, !replace, x, y, z, rx, ry,
                 &hx, &hy, &hz);
             if (hy > 0 && hy < 256 && is_obstacle(hw)) {
                 if (1 || !player_intersects_block(2, x, y, z, hx, hy, hz)) {
@@ -1508,6 +1509,8 @@ int main(int argc, char **argv) {
                     p2x = arg4;
                     p2y = arg5;
                     p2z = arg6;
+                } else if (strcmp(command, "replace") == 0 && success == 1) {
+                    replace = !replace;
                 } else if (strcmp(command, "help") == 0) {
                     build_help(messages, &message_index);
                 } else {
