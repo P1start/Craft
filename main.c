@@ -28,7 +28,7 @@
 #define INTRO_TEXT_1 "Foocraft version 0.1"
 #define INTRO_TEXT_2 "Type ~help for help."
 #define HELP_TEXT_1 \
-    "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line, ~help,"
+    "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line [width], ~help,"
 #define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste,"
 #define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2], ~replace"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
@@ -848,9 +848,9 @@ void build_pyramid_hollow(Chunk *chunks, int chunk_count, int block_type) {
     p2z = old_p2z;
 }
 
-void build_line(Chunk *chunks, int chunk_count, int block_type) {
+void build_line(Chunk *chunks, int chunk_count, int block_type, int radius) {
     macro2 = 0;
-#define plot(x,y,z) set_block(chunks, chunk_count, x, y, z, block_type)
+#define plot(x,y,z,radius) build_sphere(chunks, chunk_count, x, y, z, radius, block_type)
     float px = (float)p1x;
     float py = (float)p1y;
     float pz = (float)p1z;
@@ -863,12 +863,12 @@ void build_line(Chunk *chunks, int chunk_count, int block_type) {
     float sy = dy / N;
     float sz = dz / N;
 
-    plot(p1x, p1y, p1z);
+    plot(p1x, p1y, p1z, radius);
     for (int i = 1; i <= N; i++) {
         px += sx;
         py += sy;
         pz += sz;
-        plot(round(px), round(py), round(pz));
+        plot(round(px), round(py), round(pz), radius);
     }
 }
 
@@ -1412,7 +1412,9 @@ int main(int argc, char **argv) {
                         && success == 1) {
                     build_pyramid_hollow(chunks, chunk_count, block_type);
                 } else if (strcmp(command, "line") == 0 && success == 1) {
-                    build_line(chunks, chunk_count, block_type);
+                    build_line(chunks, chunk_count, block_type, 0);
+                } else if (strcmp(command, "line") == 0 && success == 2) {
+                    build_line(chunks, chunk_count, block_type, ceil(arg1/2.0) - 1);
                 } else if (strcmp(command, "fill") == 0 && success == 1) {
                     int hx, hy, hz;
                     int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
