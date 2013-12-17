@@ -30,7 +30,7 @@
 #define HELP_TEXT_1 \
     "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line [width], ~help,"
 #define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste,"
-#define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2], ~replace"
+#define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2], ~replace, ~width"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
 #define LEFT 0
 #define CENTER 1
@@ -60,6 +60,7 @@ static int command_done = 0;
 static int copyBuffer[100][100][100];
 static int lx, ly, lz, mx, my, mz;
 static int replace = 0;
+static int penwidth = 0;
 
 static int p1x = 0;
 static int p1y = -1000;
@@ -1363,8 +1364,12 @@ int main(int argc, char **argv) {
             int hw = hit_test(chunks, chunk_count, !replace, x, y, z, rx, ry,
                 &hx, &hy, &hz);
             if (hy > 0 && hy < 256 && is_obstacle(hw)) {
-                if (1 || !player_intersects_block(2, x, y, z, hx, hy, hz)) {
+                if (//!player_intersects_block(2, x, y, z, hx, hy, hz) &&
+                    penwidth <= 0) {
                     set_block(chunks, chunk_count, hx, hy, hz, block_type);
+                } else if (penwidth > 0) {
+                    build_sphere(chunks, chunk_count,
+                            hx, hy, hz, penwidth, block_type);
                 }
             }
         }
@@ -1438,6 +1443,8 @@ int main(int argc, char **argv) {
                     p2z = arg6;
                 } else if (strcmp(command, "replace") == 0 && success == 1) {
                     replace = !replace;
+                } else if (strcmp(command, "width") == 0 && success == 2) {
+                    penwidth = ceil(arg1/2.0) - 1;
                 } else if (strcmp(command, "help") == 0) {
                     build_help(messages, &message_index);
                 } else {
