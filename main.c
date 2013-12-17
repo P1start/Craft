@@ -1715,8 +1715,10 @@ int main(int argc, char **argv) {
         float tx = ts / 2;
         float ty = height - ts;
         snprintf(
-            text_buffer, 1024, "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] @ %d FPS",
-            p, q, x, y, z, player_count, chunk_count, framerate);
+            text_buffer, 1024,
+            "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] @ %d FPS %s",
+            p, q, x, y, z, player_count, chunk_count, framerate,
+            replace ? "[REPLACE]" : "");
         print(
             text_position_loc, text_uv_loc, LEFT,
             tx, ty, ts, text_buffer);
