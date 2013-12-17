@@ -60,7 +60,7 @@ static int command_done = 0;
 static int copyBuffer[100][100][100];
 static int lx, ly, lz, mx, my, mz;
 static int replace = 0;
-static int penwidth = 0;
+static int penwidth = 1;
 
 static int p1x = 0;
 static int p1y = -1000;
@@ -941,6 +941,12 @@ void build_selection(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
+void build_width(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+        int *message_index) {
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "Width: %d", penwidth);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+}
+
 void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
         int *message_index) {
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_1);
@@ -1350,7 +1356,12 @@ int main(int argc, char **argv) {
             int hw = hit_test(chunks, chunk_count, 0, x, y, z, rx, ry,
                 &hx, &hy, &hz);
             if (1 && is_destructable(hw)) {
-                set_block(chunks, chunk_count, hx, hy, hz, 0);
+                if (penwidth <= 1) {
+                    set_block(chunks, chunk_count, hx, hy, hz, 0);
+                } else if (penwidth > 1) {
+                    build_sphere_solid(chunks, chunk_count,
+                            hx, hy, hz, ceil(penwidth/2.0) - 1, 0);
+                }
                 int above = get_block(chunks, chunk_count, hx, hy + 1, hz);
                 if (is_plant(above)) {
                     set_block(chunks, chunk_count, hx, hy + 1, hz, 0);
@@ -1368,8 +1379,8 @@ int main(int argc, char **argv) {
                     penwidth <= 0) {
                     set_block(chunks, chunk_count, hx, hy, hz, block_type);
                 } else if (penwidth > 0) {
-                    build_sphere(chunks, chunk_count,
-                            hx, hy, hz, penwidth, block_type);
+                    build_sphere_solid(chunks, chunk_count,
+                            hx, hy, hz, ceil(penwidth/2.0) - 1, block_type);
                 }
             }
         }
@@ -1443,8 +1454,10 @@ int main(int argc, char **argv) {
                     p2z = arg6;
                 } else if (strcmp(command, "replace") == 0 && success == 1) {
                     replace = !replace;
+                } else if (strcmp(command, "width") == 0 && success == 1) {
+                    build_width(messages, &message_index);
                 } else if (strcmp(command, "width") == 0 && success == 2) {
-                    penwidth = ceil(arg1/2.0) - 1;
+                    penwidth = arg1;
                 } else if (strcmp(command, "help") == 0) {
                     build_help(messages, &message_index);
                 } else {
