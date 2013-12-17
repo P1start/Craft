@@ -1008,7 +1008,7 @@ void build_selection(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
         int *message_index) {
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE,
             "%dx%dx%d (%d, %d, %d; %d, %d, %d)",
-            abs(p1x - p2x), abs(p1y - p2y), abs(p1z - p2z),
+            abs(p1x - p2x) + 1, abs(p1y - p2y) + 1, abs(p1z - p2z) + 1,
             p1x, p1y, p1z, p2x, p2y, p2z);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
@@ -1086,6 +1086,9 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         }
         if (key == ']') {
             paste = 1;
+        }
+        if (key == GLFW_KEY_INSERT) {
+            replace = !replace;
         }
     }
 }
@@ -1413,9 +1416,6 @@ int main(int argc, char **argv) {
             if (collide(chunks, chunk_count, 2, &x, &y, &z)) {
                 dy = 0;
             }
-        }
-        if (y < 0) {
-            y = highest_block(chunks, chunk_count, x, z) + 2;
         }
 
         if (left_click) {
