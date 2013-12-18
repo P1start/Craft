@@ -31,6 +31,7 @@
     "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line [width],"
 #define HELP_TEXT_2 "                ~help, ~pyramid[-inverse][-hollow], ~fill, ~copy,"
 #define HELP_TEXT_3 "                ~paste, ~selection [x1 y1 z1 x2 y2 z2], ~replace, ~width"
+#define HELP_TEXT_4 "                ~gravity [gravity]"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
 #define MAX_NAME_LENGTH 32
 #define LEFT 0
@@ -53,6 +54,7 @@ static int copyBuffer[100][100][100];
 static int lx, ly, lz, mx, my, mz;
 static int replace = 0;
 static int penwidth = 1;
+static int gravity = 25;
 
 static int p1x = 0;
 static int p1y = -1000;
@@ -1034,6 +1036,10 @@ void build_fill(int x, int y, int z, int match, int block_type) {
     build_fill(x, y, z - 1, match, block_type);
 }
 
+void build_text(char *str, int block_type) {
+    // TODO: put stuff here
+}
+
 void build_copy() {
     copy = 0;
     lx = MIN(p1x, p2x);
@@ -1086,6 +1092,12 @@ void build_selection(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
+void build_gravity(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+        int *message_index) {
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE,
+            "Gravity: %d", gravity);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+}
 void build_width(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
         int *message_index) {
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "Width: %d", penwidth);
@@ -1099,6 +1111,8 @@ void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_2);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
     snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_3);
+    *message_index = (*message_index + 1) % MAX_MESSAGES;
+    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_4);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
@@ -1611,7 +1625,7 @@ int main(int argc, char **argv) {
                 dy = 0;
             }
             else {
-                dy -= ut * 25;
+                dy -= ut * gravity;
                 dy = MAX(dy, -250);
             }
             x += vx;
@@ -1672,9 +1686,12 @@ int main(int argc, char **argv) {
             int success;
             int arg1, arg2, arg3, arg4, arg5, arg6;
             char command[127];
+            char first5[127];
             char *buildc = typing_buffer + 1;
             success = sscanf(buildc, "%s %d %d %d %d %d %d", command,
                     &arg1, &arg2, &arg3, &arg4, &arg5, &arg6);
+            strncpy(first5, buildc, 5);
+            first5[5] = 0;
             if (success != -1) {
                 if (strcmp(command, "sphere") == 0 && success == 2) {
                     int hx, hy, hz;
@@ -1710,6 +1727,8 @@ int main(int argc, char **argv) {
                     int hw = hit_test(0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_fill(hx, hy, hz, hw, block_type);
+                //} else if (strcmp(first5, "text ") == 0) {
+                //    build_text(buildc + 5, block_type);
                 } else if (strcmp(command, "copy") == 0 && success == 1) {
                     build_copy();
                 } else if (strcmp(command, "paste") == 0 && success == 1) {
@@ -1726,6 +1745,10 @@ int main(int argc, char **argv) {
                     p2x = arg4;
                     p2y = arg5;
                     p2z = arg6;
+                } else if (strcmp(command, "gravity") == 0 && success == 1) {
+                    build_gravity(messages, &message_index);
+                } else if (strcmp(command, "gravity") == 0 && success == 2) {
+                    gravity = arg1;
                 } else if (strcmp(command, "replace") == 0 && success == 1) {
                     replace = !replace;
                 } else if (strcmp(command, "width") == 0 && success == 1) {
@@ -1861,34 +1884,7 @@ int main(int argc, char **argv) {
         // RENDER 3-D SCENE //
         glClear(GL_COLOR_BUFFER_BIT);
         glClear(GL_DEPTH_BUFFER_BIT);
-/*
-        // highlight selected block #1
-        glDisable(GL_DEPTH_TEST);
-        glBlendColor(1.0f, 0.0f, 0.0f, 1.0f);
-        glEnable(GL_BLEND);
 
-        glUseProgram(line_program);
-        glLineWidth(4);
-        glUniformMatrix4fv(line_matrix_loc, 1, GL_FALSE, matrix);
-        GLuint wireframe_buffer = gen_wireframe_buffer(p1x, p1y, p1z, 0.51);
-        draw_lines(&line_attrib, wireframe_buffer, 3, 48);
-        glDeleteBuffers(1, &wireframe_buffer);
-
-        // highlight selected block #2
-        glUseProgram(line_program);
-        glLineWidth(2);
-        glUniformMatrix4fv(line_matrix_loc, 1, GL_FALSE, matrix);
-        GLuint wireframe_buffer2 = gen_wireframe_buffer(p2x, p2y, p2z, 0.51);
-        draw_lines(&line_attrib, wireframe_buffer2, 3, 48);
-        glDeleteBuffers(1, &wireframe_buffer2);
-
-        glEnable(GL_DEPTH_TEST);
-
-
-
-
-        set_matrix_2d(matrix, width, height);
-*/
         render_chunks(&block_attrib, width, height, player);
         render_players(&block_attrib, width, height, player);
         render_wireframe(&line_attrib, width, height, player);
