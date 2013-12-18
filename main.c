@@ -108,7 +108,6 @@ static int exclusive = 1;
 static int left_click = 0;
 static int right_click = 0;
 static int middle_click = 0;
-static int follow_next = 0;
 static int flying = 0;
 static int block_type = 1;
 static int ortho = 0;
@@ -1179,7 +1178,10 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
             flying = !flying;
         }
         if (key == CRAFT_KEY_FOLLOW_NEXT) {
-            follow_next = 1;
+            follow = (follow + 1) % player_count;
+            if (observe == OBSERVE_ME) {
+                observe = OBSERVE_ME_YOU;
+            }
         }
         if (key >= '1' && key <= '9') {
             block_type = key - '1' + 1;
@@ -1676,11 +1678,6 @@ int main(int argc, char **argv) {
             int hw = hit_test(1, x, y, z, rx, ry,
                 &hx, &hy, &hz);
             build_paste(hx, hy, hz);
-        }
-
-        if (follow_next) {
-            follow_next = 0;
-            follow = (follow + 1) % player_count;
         }
 
         // HANDLE DATA FROM SERVER //
