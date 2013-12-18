@@ -726,14 +726,16 @@ int get_block(int x, int y, int z) {
     return 0;
 }
 
-void build_sphere(int hx, int hy, int hz, int radius, int block_type) {
+void build_sphere(int hx, int hy, int hz, int radius, int block_type,
+        int destructive) {
     for (int px = -radius; px <= radius; px++) {
         for (int py = -radius; py <= radius; py++) {
             for (int pz = -radius; pz <= radius; pz++) {
                 if (   px*px + py*py + pz*pz >= radius*(radius - 1)
                     && px*px + py*py + pz*pz <= radius*(radius + 1)
                     && (   get_block(px + hx, py + hy, pz + hz) == 0
-                        || block_type == 0)) {
+                        || block_type == 0
+                        || destructive)) {
                     set_block(px + hx, py + hy, pz + hz, block_type);
                 }
             }
@@ -741,13 +743,15 @@ void build_sphere(int hx, int hy, int hz, int radius, int block_type) {
     }
 }
 
-void build_sphere_solid(int hx, int hy, int hz, int radius, int block_type) {
+void build_sphere_solid(int hx, int hy, int hz, int radius, int block_type,
+        int destructive) {
     for (int px = -radius; px <= radius; px++) {
         for (int py = -radius; py <= radius; py++) {
             for (int pz = -radius; pz <= radius; pz++) {
                 if (   px*px + py*py + pz*pz <= radius*(radius + 1)
                     && (   get_block(px + hx, py + hy, pz + hz) == 0
-                        || block_type == 0)) {
+                        || block_type == 0
+                        || destructive)) {
                     set_block(px + hx, py + hy, pz + hz, block_type);
                 }
             }
@@ -916,7 +920,7 @@ void build_pyramid_hollow(int block_type) {
 
 void build_line(int block_type, int radius) {
     macro2 = 0;
-#define plot(x,y,z,radius) build_sphere(x, y, z, radius, block_type)
+#define plot(x,y,z,radius) build_sphere_solid(x, y, z, radius, block_type, 1)
     float px = (float)p1x;
     float py = (float)p1y;
     float pz = (float)p1z;
@@ -1549,7 +1553,8 @@ int main(int argc, char **argv) {
                 if (penwidth <= 1) {
                     set_block(hx, hy, hz, 0);
                 } else if (penwidth > 1) {
-                    build_sphere_solid(hx, hy, hz, ceil(penwidth/2.0) - 1, 0);
+                    build_sphere_solid(hx, hy, hz, ceil(penwidth/2.0) - 1, 0,
+                            1);
                 }
                 int above = get_block(hx, hy + 1, hz);
                 if (is_plant(above)) {
@@ -1564,11 +1569,11 @@ int main(int argc, char **argv) {
                 &hx, &hy, &hz);
             if (hy > 0 && hy < 256 && is_obstacle(hw)) {
                 if (//!player_intersects_block(2, x, y, z, hx, hy, hz) &&
-                    penwidth <= 0) {
+                    penwidth <= 1) {
                     set_block(hx, hy, hz, block_type);
-                } else if (penwidth > 0) {
+                } else if (penwidth > 1) {
                     build_sphere_solid(hx, hy, hz,
-                            ceil(penwidth/2.0) - 1, block_type);
+                            ceil(penwidth/2.0) - 1, block_type, 1);
                 }
             }
         }
@@ -1594,12 +1599,12 @@ int main(int argc, char **argv) {
                 if (strcmp(command, "sphere") == 0 && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(0, x, y, z, rx, ry, &hx, &hy, &hz);
-                    build_sphere(hx, hy, hz, arg1, block_type);
+                    build_sphere(hx, hy, hz, arg1, block_type, 0);
                 } else if (strcmp(command, "sphere-solid") == 0
                         && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(0, x, y, z, rx, ry, &hx, &hy, &hz);
-                    build_sphere_solid(hx, hy, hz, arg1, block_type);
+                    build_sphere_solid(hx, hy, hz, arg1, block_type, 0);
                 } else if (strcmp(command, "cuboid") == 0 && success == 1) {
                     build_cuboid(block_type);
                 } else if (strcmp(command, "cuboid-hollow") == 0
