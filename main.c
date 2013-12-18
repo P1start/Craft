@@ -32,6 +32,7 @@
 #define HELP_TEXT_2 "                ~help, ~pyramid[-inverse][-hollow], ~fill, ~copy,"
 #define HELP_TEXT_3 "                ~paste, ~selection [x1 y1 z1 x2 y2 z2], ~replace, ~width"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
+#define MAX_NAME_LENGTH 32
 #define LEFT 0
 #define CENTER 1
 #define RIGHT 2
@@ -80,6 +81,7 @@ typedef struct {
 
 typedef struct {
     int id;
+    char name[MAX_NAME_LENGTH];
     State state;
     State state1;
     State state2;
@@ -1491,6 +1493,7 @@ int main(int argc, char **argv) {
     Player *me = players;
     me->id = 0;
     me->buffer = 0;
+    strncpy(me->name, "me", MAX_NAME_LENGTH);
     player_count = 1;
 
     float x = (rand_double() - 0.5) * 10000;
@@ -1803,6 +1806,7 @@ int main(int argc, char **argv) {
                     player_count++;
                     player->id = pid;
                     player->buffer = 0;
+                    snprintf(player->name, MAX_NAME_LENGTH, "player%d", pid);
                     update_player(player, px, py, pz, prx, pry, 1); // twice
                 }
                 if (player) {
@@ -1822,6 +1826,15 @@ int main(int argc, char **argv) {
                 snprintf(
                     messages[message_index], TEXT_BUFFER_SIZE, "%s", text);
                 message_index = (message_index + 1) % MAX_MESSAGES;
+            }
+            char format[32];
+            snprintf(format, sizeof(format), "N,%%d,%%%ds", MAX_NAME_LENGTH - 1);
+            char name[MAX_NAME_LENGTH];
+            if (sscanf(buffer, format, &pid, name) == 2) {
+                Player *player = find_player(pid);
+                if (player) {
+                    strncpy(player->name, name, MAX_NAME_LENGTH);
+                }
             }
         }
 
@@ -1941,6 +1954,10 @@ int main(int argc, char **argv) {
 
             render_chunks(&block_attrib, pw, ph, player);
             render_players(&block_attrib, pw, ph, player);
+
+            glClear(GL_DEPTH_BUFFER_BIT);
+            render_text(&text_attrib, pw, ph,
+                CENTER, pw / 2, ts, ts, player->name);
         }
 
         // swap buffers
