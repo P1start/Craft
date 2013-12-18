@@ -1040,7 +1040,7 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
             block_type = 10;
         }
         if (key == CRAFT_KEY_BLOCK_TYPE) {
-            block_type = (block_type+1) % 16;
+            block_type = (block_type+1) % 15;
         }
         if (key == '[') {
             copy = 1;
