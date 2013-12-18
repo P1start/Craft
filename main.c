@@ -79,12 +79,19 @@ typedef struct {
 } Chunk;
 
 typedef struct {
-    int id;
     float x;
     float y;
     float z;
     float rx;
     float ry;
+    float t;
+} State;
+
+typedef struct {
+    int id;
+    State state;
+    State state1;
+    State state2;
     GLuint buffer;
 } Player;
 
@@ -292,15 +299,45 @@ Player *find_player(Player *players, int player_count, int id) {
 }
 
 void update_player(Player *player,
-    float x, float y, float z, float rx, float ry)
+    float x, float y, float z, float rx, float ry, int interpolate)
 {
-    player->x = x;
-    player->y = y;
-    player->z = z;
-    player->rx = rx;
-    player->ry = ry;
-    del_buffer(player->buffer);
-    player->buffer = gen_player_buffer(x, y + 0.1, z, rx, ry);
+    if (interpolate) {
+        State *s1 = &player->state1;
+        State *s2 = &player->state2;
+        memcpy(s1, s2, sizeof(State));
+        s2->x = x; s2->y = y; s2->z = z; s2->rx = rx; s2->ry = ry;
+        s2->t = glfwGetTime();
+        if (s2->rx - s1->rx > PI) {
+            s1->rx += 2 * PI;
+        }
+        if (s1->rx - s2->rx > PI) {
+            s1->rx -= 2 * PI;
+        }
+    }
+    else {
+        State *s = &player->state;
+        s->x = x; s->y = y + 0.1; s->z = z; s->rx = rx; s->ry = ry;
+        del_buffer(player->buffer);
+        player->buffer = gen_player_buffer(s->x, s->y, s->z, s->rx, s->ry);
+    }
+}
+
+void interpolate_player(Player *player) {
+    State *s1 = &player->state1;
+    State *s2 = &player->state2;
+    float t1 = s2->t - s1->t;
+    float t2 = glfwGetTime() - s2->t;
+    t1 = MIN(t1, 1);
+    t1 = MAX(t1, 0.1);
+    float p = MIN(t2 / t1, 1);
+    update_player(
+        player,
+        s1->x + (s2->x - s1->x) * p,
+        s1->y + (s2->y - s1->y) * p,
+        s1->z + (s2->z - s1->z) * p,
+        s1->rx + (s2->rx - s1->rx) * p,
+        s1->ry + (s2->ry - s1->ry) * p,
+        0);
 }
 
 void delete_player(Player *players, int *player_count, int id) {
@@ -1210,11 +1247,15 @@ int main(int argc, char **argv) {
     char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE] = {0};
     int message_index = 0;
     double last_commit = glfwGetTime();
+    double last_update = glfwGetTime();
 
     Chunk chunks[MAX_CHUNKS];
     int chunk_count = 0;
 
-    Player me = {0, 0, 0, 0, 0, 0, 0};
+    Player me;
+    me.id = 0;
+    me.buffer = 0;
+
     Player players[MAX_PLAYERS];
     int player_count = 0;
 
@@ -1497,13 +1538,13 @@ int main(int argc, char **argv) {
             if (player_count) {
                 int index = rand_int(player_count);
                 Player *player = players + index;
-                x = player->x; y = player->y; z = player->z;
-                rx = player->rx; ry = player->ry;
+                State *s = &player->state;
+                x = s->x; y = s->y; z = s->z;
+                rx = s->rx; ry = s->ry;
                 ensure_chunks(chunks, &chunk_count, x, y, z, 1);
             }
         }
 
-        client_position(x, y, z, rx, ry);
         char buffer[RECV_BUFFER_SIZE];
         int count = 0;
         while (count < 1024 && client_recv(buffer, RECV_BUFFER_SIZE)) {
@@ -1535,9 +1576,10 @@ int main(int argc, char **argv) {
                     player_count++;
                     player->id = pid;
                     player->buffer = 0;
+                    update_player(player, px, py, pz, prx, pry, 1); // twice
                 }
                 if (player) {
-                    update_player(player, px, py, pz, prx, pry);
+                    update_player(player, px, py, pz, prx, pry, 1);
                 }
             }
             if (sscanf(buffer, "D,%d", &pid) == 1) {
@@ -1556,10 +1598,15 @@ int main(int argc, char **argv) {
             }
         }
 
+        if (now - last_update > 0.1) {
+            last_update = now;
+            client_position(x, y, z, rx, ry);
+        }
+
         int p = chunked(x);
         int q = chunked(z);
         ensure_chunks(chunks, &chunk_count, x, y, z, 0);
-        update_player(&me, x, y, z, rx, ry);
+        update_player(&me, x, y, z, rx, ry, 0);
 
         // RENDER 3-D SCENE //
 
@@ -1585,9 +1632,10 @@ int main(int argc, char **argv) {
         }
 
         // render players
-        draw_player(&block_attrib, &me);
+        // draw_player(&block_attrib, &me);
         for (int i = 0; i < player_count; i++) {
             Player *player = players + i;
+            interpolate_player(player);
             draw_player(&block_attrib, player);
         }
 
