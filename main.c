@@ -23,8 +23,8 @@
 #define CREATE_CHUNK_RADIUS 6
 #define RENDER_CHUNK_RADIUS 6
 #define DELETE_CHUNK_RADIUS 12
-#define RECV_BUFFER_SIZE 1024
-#define TEXT_BUFFER_SIZE 256
+#define MAX_RECV_LENGTH 1024
+#define MAX_TEXT_LENGTH 256
 #define INTRO_TEXT_1 "Foocraft version 0.1"
 #define INTRO_TEXT_2 "Type ~help for help."
 #define HELP_TEXT_1 \
@@ -37,10 +37,6 @@
 #define LEFT 0
 #define CENTER 1
 #define RIGHT 2
-#define OBSERVE_ME 0
-#define OBSERVE_ME_YOU 1
-#define OBSERVE_YOU_ME 2
-#define OBSERVE_YOU 3
 
 // Added
 static int macro1 = 0;
@@ -102,22 +98,24 @@ typedef struct {
 } Attrib;
 
 static GLFWwindow *window;
+static int width = 0;
+static int height = 0;
 static Chunk chunks[MAX_CHUNKS];
 static int chunk_count = 0;
 static Player players[MAX_PLAYERS];
 static int player_count = 0;
-static int follow = 0;
-static int observe = 0;
 static int exclusive = 1;
 static int left_click = 0;
 static int right_click = 0;
 static int middle_click = 0;
+static int observe1 = 0;
+static int observe2 = 0;
 static int flying = 0;
 static int block_type = 1;
 static int ortho = 0;
-static float fov = 65.0;
+static float fov = 65;
 static int typing = 0;
-static char typing_buffer[TEXT_BUFFER_SIZE] = {0};
+static char typing_buffer[MAX_TEXT_LENGTH] = {0};
 
 int is_plant(int w) {
     return w > 16;
@@ -180,7 +178,7 @@ void get_motion_vector(int flying, int sz, int sx, float rx, float ry,
     }
 }
 
-GLuint gen_crosshair_buffer(int width, int height) {
+GLuint gen_crosshair_buffer() {
     int x = width / 2;
     int y = height / 2;
     int p = 10;
@@ -628,25 +626,27 @@ void create_chunk(Chunk *chunk, int p, int q) {
 void delete_chunks() {
     int count = chunk_count;
     State *s1 = &players->state;
-    State *s2 = &(players + follow)->state;
-    int p1 = chunked(s1->x);
-    int q1 = chunked(s1->z);
-    int p2 = chunked(s2->x);
-    int q2 = chunked(s2->z);
+    State *s2 = &(players + observe1)->state;
+    State *s3 = &(players + observe2)->state;
+    State *states[3] = {s1, s2, s3};
     for (int i = 0; i < count; i++) {
         Chunk *chunk = chunks + i;
-        if (chunk_distance(chunk, p1, q1) < DELETE_CHUNK_RADIUS) {
-            continue;
-        }
-        if (observe != OBSERVE_ME) {
-            if (chunk_distance(chunk, p2, q2) < DELETE_CHUNK_RADIUS) {
-                continue;
+        int delete = 1;
+        for (int j = 0; j < 3; j++) {
+            State *s = states[j];
+            int p = chunked(s->x);
+            int q = chunked(s->z);
+            if (chunk_distance(chunk, p, q) < DELETE_CHUNK_RADIUS) {
+                delete = 0;
+                break;
             }
         }
-        map_free(&chunk->map);
-        del_buffer(chunk->buffer);
-        Chunk *other = chunks + (--count);
-        memcpy(chunk, other, sizeof(Chunk));
+        if (delete) {
+            map_free(&chunk->map);
+            del_buffer(chunk->buffer);
+            Chunk *other = chunks + (--count);
+            memcpy(chunk, other, sizeof(Chunk));
+        }
     }
     chunk_count = count;
 }
@@ -781,7 +781,7 @@ void build_cuboid(int block_type) {
     }
 }
 
-void render_chunks(Attrib *attrib, int width, int height, Player *player) {
+void render_chunks(Attrib *attrib, Player *player) {
     State *s = &player->state;
     ensure_chunks(s->x, s->y, s->z, 0);
     int p = chunked(s->x);
@@ -806,7 +806,7 @@ void render_chunks(Attrib *attrib, int width, int height, Player *player) {
     }
 }
 
-void render_players(Attrib *attrib, int width, int height, Player *player) {
+void render_players(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
@@ -1075,54 +1075,54 @@ void build_paste(int hx, int hy, int hz) {
     }
 }
 
-void build_intro(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+void build_intro(char messages[MAX_MESSAGES][MAX_TEXT_LENGTH],
         int *message_index) {
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", INTRO_TEXT_1);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "%s", INTRO_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", INTRO_TEXT_2);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "%s", INTRO_TEXT_2);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void build_selection(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+void build_selection(char messages[MAX_MESSAGES][MAX_TEXT_LENGTH],
         int *message_index) {
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE,
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH,
             "%dx%dx%d (%d, %d, %d; %d, %d, %d)",
             abs(p1x - p2x) + 1, abs(p1y - p2y) + 1, abs(p1z - p2z) + 1,
             p1x, p1y, p1z, p2x, p2y, p2z);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void build_gravity(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+void build_gravity(char messages[MAX_MESSAGES][MAX_TEXT_LENGTH],
         int *message_index) {
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE,
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH,
             "Gravity: %d", gravity);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
-void build_width(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+void build_width(char messages[MAX_MESSAGES][MAX_TEXT_LENGTH],
         int *message_index) {
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "Width: %d", penwidth);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "Width: %d", penwidth);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void build_help(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+void build_help(char messages[MAX_MESSAGES][MAX_TEXT_LENGTH],
         int *message_index) {
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_1);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "%s", HELP_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_2);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "%s", HELP_TEXT_2);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_3);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "%s", HELP_TEXT_3);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", HELP_TEXT_4);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "%s", HELP_TEXT_4);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void build_unknown(char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE],
+void build_unknown(char messages[MAX_MESSAGES][MAX_TEXT_LENGTH],
         int *message_index) {
-    snprintf(messages[*message_index], TEXT_BUFFER_SIZE, "%s", UNKNOWN_TEXT_1);
+    snprintf(messages[*message_index], MAX_TEXT_LENGTH, "%s", UNKNOWN_TEXT_1);
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
-void render_wireframe(Attrib *attrib, int width, int height, Player *player) {
+void render_wireframe(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
@@ -1141,8 +1141,7 @@ void render_wireframe(Attrib *attrib, int width, int height, Player *player) {
     }
 }
 
-
-void render_wireframe_select1(Attrib *attrib, int width, int height, Player *player) {
+void render_wireframe_select1(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
@@ -1163,7 +1162,7 @@ void render_wireframe_select1(Attrib *attrib, int width, int height, Player *pla
     glEnable(GL_DEPTH_TEST);
 }
 
-void render_wireframe_select2(Attrib *attrib, int width, int height, Player *player) {
+void render_wireframe_select2(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
@@ -1184,20 +1183,20 @@ void render_wireframe_select2(Attrib *attrib, int width, int height, Player *pla
     glEnable(GL_DEPTH_TEST);
 }
 
-void render_crosshairs(Attrib *attrib, int width, int height) {
+void render_crosshairs(Attrib *attrib) {
     float matrix[16];
     set_matrix_2d(matrix, width, height);
     glUseProgram(attrib->program);
     glLineWidth(4);
     glEnable(GL_COLOR_LOGIC_OP);
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
-    GLuint crosshair_buffer = gen_crosshair_buffer(width, height);
+    GLuint crosshair_buffer = gen_crosshair_buffer();
     draw_lines(attrib, crosshair_buffer, 2, 4);
     del_buffer(crosshair_buffer);
     glDisable(GL_COLOR_LOGIC_OP);
 }
 
-void render_item(Attrib *attrib, int width, int height) {
+void render_item(Attrib *attrib) {
     float matrix[16];
     set_matrix_item(matrix, width, height);
     glUseProgram(attrib->program);
@@ -1218,8 +1217,7 @@ void render_item(Attrib *attrib, int width, int height) {
 }
 
 void render_text(
-    Attrib *attrib, int width, int height,
-    int justify, float x, float y, float n, char *text)
+    Attrib *attrib, int justify, float x, float y, float n, char *text)
 {
     float matrix[16];
     set_matrix_2d(matrix, width, height);
@@ -1276,12 +1274,6 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         if (key == CRAFT_KEY_FLY) {
             flying = !flying;
         }
-        if (key == CRAFT_KEY_FOLLOW_NEXT) {
-            follow = (follow + 1) % player_count;
-            if (observe == OBSERVE_ME) {
-                observe = OBSERVE_ME_YOU;
-            }
-        }
         if (key >= '1' && key <= '9') {
             block_type = key - '1' + 1;
         }
@@ -1301,7 +1293,10 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
             replace = !replace;
         }
         if (key == CRAFT_KEY_OBSERVE) {
-            observe = (observe + 1) % 4;
+            observe1 = (observe1 + 1) % player_count;
+        }
+        if (key == CRAFT_KEY_OBSERVE_INSET) {
+            observe2 = (observe2 + 1) % player_count;
         }
     }
 }
@@ -1311,7 +1306,7 @@ void on_char(GLFWwindow *window, unsigned int u) {
         if (u >= 32 && u < 128) {
             char c = (char)u;
             int n = strlen(typing_buffer);
-            if (n < TEXT_BUFFER_SIZE - 1) {
+            if (n < MAX_TEXT_LENGTH - 1) {
                 typing_buffer[n] = c;
                 typing_buffer[n + 1] = '\0';
             }
@@ -1385,17 +1380,18 @@ void on_mouse_button(GLFWwindow *window, int button, int action, int mods) {
 }
 
 void create_window() {
-    int width = WINDOW_WIDTH;
-    int height = WINDOW_HEIGHT;
+    int window_width = WINDOW_WIDTH;
+    int window_height = WINDOW_HEIGHT;
     GLFWmonitor *monitor = NULL;
     if (FULLSCREEN) {
         int mode_count;
         monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode *modes = glfwGetVideoModes(monitor, &mode_count);
-        width = modes[mode_count - 1].width;
-        height = modes[mode_count - 1].height;
+        window_width = modes[mode_count - 1].width;
+        window_height = modes[mode_count - 1].height;
     }
-    window = glfwCreateWindow(width, height, "Craft", monitor, NULL);
+    window = glfwCreateWindow(
+        window_width, window_height, "Craft", monitor, NULL);
 }
 
 int main(int argc, char **argv) {
@@ -1500,7 +1496,7 @@ int main(int argc, char **argv) {
 
     FPS fps = {0, 0, 0};
     int message_index = 0;
-    char messages[MAX_MESSAGES][TEXT_BUFFER_SIZE] = {0};
+    char messages[MAX_MESSAGES][MAX_TEXT_LENGTH] = {0};
     double last_commit = glfwGetTime();
     double last_update = glfwGetTime();
 
@@ -1530,7 +1526,6 @@ int main(int argc, char **argv) {
     double previous = glfwGetTime();
     build_intro(messages, &message_index);
     while (!glfwWindowShouldClose(window)) {
-        int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
 
@@ -1572,7 +1567,7 @@ int main(int argc, char **argv) {
         if (!typing) {
             float m = dt * 1.0;
             ortho = glfwGetKey(window, CRAFT_KEY_ORTHO);
-            fov = glfwGetKey(window, CRAFT_KEY_ZOOM) ? 15.0 : 65.0;
+            fov = glfwGetKey(window, CRAFT_KEY_ZOOM) ? 15 : 65;
             if (glfwGetKey(window, CRAFT_KEY_QUIT)) break;
             if (glfwGetKey(window, CRAFT_KEY_FORWARD)) sz--;
             if (glfwGetKey(window, CRAFT_KEY_BACKWARD)) sz++;
@@ -1797,9 +1792,9 @@ int main(int argc, char **argv) {
         }
 
         // HANDLE DATA FROM SERVER //
-        char buffer[RECV_BUFFER_SIZE];
+        char buffer[MAX_RECV_LENGTH];
         int count = 0;
-        while (count < 1024 && client_recv(buffer, RECV_BUFFER_SIZE)) {
+        while (count < 1024 && client_recv(buffer, MAX_RECV_LENGTH)) {
             count++;
             int pid;
             float ux, uy, uz, urx, ury;
@@ -1847,7 +1842,7 @@ int main(int argc, char **argv) {
                 char *text = buffer + 2;
                 printf("%s\n", text);
                 snprintf(
-                    messages[message_index], TEXT_BUFFER_SIZE, "%s", text);
+                    messages[message_index], MAX_TEXT_LENGTH, "%s", text);
                 message_index = (message_index + 1) % MAX_MESSAGES;
             }
             char format[32];
@@ -1867,34 +1862,30 @@ int main(int argc, char **argv) {
             client_position(x, y, z, rx, ry);
         }
 
-        // UPDATE PLAYERS //
-        follow = follow % player_count;
+        // PREPARE TO RENDER //
+        observe1 = observe1 % player_count;
+        observe2 = observe2 % player_count;
+        delete_chunks();
         update_player(me, x, y, z, rx, ry, 0);
         for (int i = 1; i < player_count; i++) {
             interpolate_player(players + i);
         }
-
-        Player *player = me;
-        if (observe == OBSERVE_YOU_ME || observe == OBSERVE_YOU) {
-            player = players + follow;
-        }
-
-        delete_chunks();
+        Player *player = players + observe1;
 
         // RENDER 3-D SCENE //
         glClear(GL_COLOR_BUFFER_BIT);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        render_chunks(&block_attrib, width, height, player);
-        render_players(&block_attrib, width, height, player);
-        render_wireframe(&line_attrib, width, height, player);
-        render_wireframe_select1(&line_attrib, width, height, player);
-        render_wireframe_select2(&line_attrib, width, height, player);
+        render_chunks(&block_attrib, player);
+        render_players(&block_attrib, player);
+        render_wireframe(&line_attrib, player);
+        render_wireframe_select1(&line_attrib, player);
+        render_wireframe_select2(&line_attrib, player);
 
         // RENDER HUD //
         glClear(GL_DEPTH_BUFFER_BIT);
-        render_crosshairs(&line_attrib, width, height);
-        render_item(&block_attrib, width, height);
+        render_crosshairs(&line_attrib);
+        render_item(&block_attrib);
 
         // RENDER TEXT //
         char text_buffer[1024];
@@ -1906,34 +1897,27 @@ int main(int argc, char **argv) {
             "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] %d %s",
             chunked(x), chunked(y), x, y, z, player_count, chunk_count, fps.fps,
             replace ? "[REPLACE]" : "");
-        render_text(&text_attrib, width, height,
-            LEFT, tx, ty, ts, text_buffer);
+        render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
 
         for (int i = 0; i < MAX_MESSAGES; i++) {
             int index = (message_index + i) % MAX_MESSAGES;
             if (strlen(messages[index])) {
                 ty -= ts * 2;
-                render_text(&text_attrib, width, height,
-                    LEFT, tx, ty, ts, messages[index]);
+                render_text(&text_attrib, LEFT, tx, ty, ts, messages[index]);
             }
         }
         if (typing) {
             ty -= ts * 2;
             snprintf(text_buffer, 1024, "> %s", typing_buffer);
-            render_text(&text_attrib, width, height,
-                LEFT, tx, ty, ts, text_buffer);
+            render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
         }
         if (player != me) {
-            render_text(&text_attrib, width, height,
-                CENTER, width / 2, ts, ts, player->name);
+            render_text(&text_attrib, CENTER, width / 2, ts, ts, player->name);
         }
 
         // RENDER PICTURE IN PICTURE //
-        if (observe == OBSERVE_ME_YOU || observe == OBSERVE_YOU_ME) {
-            player = me;
-            if (observe == OBSERVE_ME_YOU) {
-                player = players + follow;
-            }
+        if (observe2) {
+            player = players + observe2;
 
             int pw = 256;
             int ph = 256;
@@ -1952,12 +1936,16 @@ int main(int argc, char **argv) {
             glClear(GL_DEPTH_BUFFER_BIT);
             glViewport(width - pw - 32, 32, pw, ph);
 
-            render_chunks(&block_attrib, pw, ph, player);
-            render_players(&block_attrib, pw, ph, player);
+            width = pw;
+            height = ph;
+            ortho = 0;
+            fov = 65;
+
+            render_chunks(&block_attrib, player);
+            render_players(&block_attrib, player);
 
             glClear(GL_DEPTH_BUFFER_BIT);
-            render_text(&text_attrib, pw, ph,
-                CENTER, pw / 2, ts, ts, player->name);
+            render_text(&text_attrib, CENTER, pw / 2, ts, ts, player->name);
         }
 
         // swap buffers
