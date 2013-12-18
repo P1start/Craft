@@ -28,9 +28,9 @@
 #define INTRO_TEXT_1 "Foocraft version 0.1"
 #define INTRO_TEXT_2 "Type ~help for help."
 #define HELP_TEXT_1 \
-    "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line [width], ~help,"
-#define HELP_TEXT_2 "                ~pyramid[-hollow], ~fill, ~copy, ~paste,"
-#define HELP_TEXT_3 "                ~selection [x1 y1 z1 x2 y2 z2], ~replace, ~width"
+    "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line [width],"
+#define HELP_TEXT_2 "                ~help, ~pyramid[-inverse][-hollow], ~fill, ~copy,"
+#define HELP_TEXT_3 "                ~paste, ~selection [x1 y1 z1 x2 y2 z2], ~replace, ~width"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
 #define LEFT 0
 #define CENTER 1
@@ -876,6 +876,41 @@ void build_pyramid(int block_type) {
     p2z = old_p2z;
 }
 
+void build_pyramid_inverse(int block_type) {
+    int old_p1x = p1x;
+    int old_p1y = p1y;
+    int old_p1z = p1z;
+    int old_p2x = p2x;
+    int old_p2y = p2y;
+    int old_p2z = p2z;
+
+    int y = p1y;
+    int x1 = MAX(p1x, p2x);
+    int x2 = MIN(p1x, p2x);
+    int z1 = MAX(p1z, p2z);
+    int z2 = MIN(p1z, p2z);
+    while (x2 < x1 && z2 < z1) {
+        p1x = x1;
+        p1y = y;
+        p1z = z1;
+        p2x = x2;
+        p2y = y;
+        p2z = z2;
+        build_cuboid(block_type);
+        y -= 1;
+        x1 -= 1;
+        x2 += 1;
+        z1 -= 1;
+        z2 += 1;
+    }
+    p1x = old_p1x;
+    p1y = old_p1y;
+    p1z = old_p1z;
+    p2x = old_p2x;
+    p2y = old_p2y;
+    p2z = old_p2z;
+}
+
 void build_pyramid_hollow(int block_type) {
     int old_p1x = p1x;
     int old_p1y = p1y;
@@ -905,6 +940,48 @@ void build_pyramid_hollow(int block_type) {
             }
         }
         y += 1;
+        x1 += 1;
+        x2 -= 1;
+        z1 += 1;
+        z2 -= 1;
+    }
+    p1x = old_p1x;
+    p1y = old_p1y;
+    p1z = old_p1z;
+    p2x = old_p2x;
+    p2y = old_p2y;
+    p2z = old_p2z;
+}
+
+void build_pyramid_inverse_hollow(int block_type) {
+    int old_p1x = p1x;
+    int old_p1y = p1y;
+    int old_p1z = p1z;
+    int old_p2x = p2x;
+    int old_p2y = p2y;
+    int old_p2z = p2z;
+
+    int y = p1y;
+    int my = y;
+    int x1 = MIN(p1x, p2x);
+    int x2 = MAX(p1x, p2x);
+    int z1 = MIN(p1z, p2z);
+    int z2 = MAX(p1z, p2z);
+    while (x2 >= x1 && z2 >= z1) {
+        p1x = x1;
+        p1y = y;
+        p1z = z1;
+        p2x = x2;
+        p2y = y;
+        p2z = z2;
+        for (int px = x1; px <= x2; px++) {
+            for (int pz = z1; pz <= z2; pz++) {
+                if (pz == z1 || pz == z2 || px == x1 || px == x2 || y == my) {
+                    set_block(px, y, pz, block_type);
+                }
+            }
+        }
+        y -= 1;
         x1 += 1;
         x2 -= 1;
         z1 += 1;
@@ -1615,6 +1692,12 @@ int main(int argc, char **argv) {
                 } else if (strcmp(command, "pyramid-hollow") == 0
                         && success == 1) {
                     build_pyramid_hollow(block_type);
+                } else if (strcmp(command, "pyramid-inverse") == 0
+                        && success == 1) {
+                    build_pyramid_inverse(block_type);
+                } else if (strcmp(command, "pyramid-inverse-hollow") == 0
+                        && success == 1) {
+                    build_pyramid_inverse_hollow(block_type);
                 } else if (strcmp(command, "line") == 0 && success == 1) {
                     build_line(block_type, 0);
                 } else if (strcmp(command, "line") == 0 && success == 2) {
