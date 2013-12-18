@@ -887,11 +887,11 @@ void build_pyramid_inverse(int block_type) {
     int old_p2z = p2z;
 
     int y = p1y;
-    int x1 = MAX(p1x, p2x);
-    int x2 = MIN(p1x, p2x);
-    int z1 = MAX(p1z, p2z);
-    int z2 = MIN(p1z, p2z);
-    while (x2 < x1 && z2 < z1) {
+    int x1 = MIN(p1x, p2x);
+    int x2 = MAX(p1x, p2x);
+    int z1 = MIN(p1z, p2z);
+    int z2 = MAX(p1z, p2z);
+    while (x2 >= x1 && z2 >= z1) {
         p1x = x1;
         p1y = y;
         p1z = z1;
@@ -900,10 +900,10 @@ void build_pyramid_inverse(int block_type) {
         p2z = z2;
         build_cuboid(block_type);
         y -= 1;
-        x1 -= 1;
-        x2 += 1;
-        z1 -= 1;
-        z2 += 1;
+        x1 += 1;
+        x2 -= 1;
+        z1 += 1;
+        z2 -= 1;
     }
     p1x = old_p1x;
     p1y = old_p1y;
