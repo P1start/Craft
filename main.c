@@ -34,6 +34,8 @@
 #define HELP_TEXT_4 "                ~gravity [gravity]"
 #define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
 #define MAX_NAME_LENGTH 32
+#define ZNEAR 0.125
+#define ZFAR 256
 #define LEFT 0
 #define CENTER 1
 #define RIGHT 2
@@ -93,6 +95,7 @@ typedef struct {
     GLuint uv;
     GLuint matrix;
     GLuint sampler;
+    GLuint sampler2;
     GLuint camera;
     GLuint timer;
 } Attrib;
@@ -141,6 +144,15 @@ int is_selectable(int w) {
 
 int chunked(float x) {
     return floorf(roundf(x) / CHUNK_SIZE);
+}
+
+float time_of_day() {
+    float t;
+    t = glfwGetTime();
+    t = t + DAY_LENGTH / 5.0;
+    t = t / DAY_LENGTH;
+    t = t - (int)t;
+    return t;
 }
 
 void get_sight_vector(float rx, float ry, float *vx, float *vy, float *vz) {
@@ -192,6 +204,12 @@ GLuint gen_crosshair_buffer() {
 GLuint gen_wireframe_buffer(float x, float y, float z, float n) {
     float data[144];
     make_cube_wireframe(data, x, y, z, n);
+    return gen_buffer(sizeof(data), data);
+}
+
+GLuint gen_sky_buffer() {
+    float data[12288];
+    make_sphere(data, 384, 3);
     return gen_buffer(sizeof(data), data);
 }
 
@@ -321,7 +339,7 @@ void update_player(Player *player,
     }
     else {
         State *s = &player->state;
-        s->x = x; s->y = y + 0.1; s->z = z; s->rx = rx; s->ry = ry;
+        s->x = x; s->y = y; s->z = z; s->rx = rx; s->ry = ry;
         del_buffer(player->buffer);
         player->buffer = gen_player_buffer(s->x, s->y, s->z, s->rx, s->ry);
     }
@@ -461,7 +479,7 @@ int _hit_test(
     float vx, float vy, float vz,
     int *hx, int *hy, int *hz)
 {
-    int m = 8;
+    int m = 32;
     int px = 0;
     int py = 0;
     int pz = 0;
@@ -833,12 +851,14 @@ void render_chunks(Attrib *attrib, Player *player) {
     int q = chunked(s->z);
     float matrix[16];
     set_matrix_3d(
-        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, fov, ortho);
+        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry,
+        ZNEAR, ZFAR, fov, ortho);
     glUseProgram(attrib->program);
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
     glUniform3f(attrib->camera, s->x, s->y, s->z);
     glUniform1i(attrib->sampler, 0);
-    glUniform1f(attrib->timer, glfwGetTime());
+    glUniform1i(attrib->sampler2, 2);
+    glUniform1f(attrib->timer, time_of_day());
     for (int i = 0; i < chunk_count; i++) {
         Chunk *chunk = chunks + i;
         if (chunk_distance(chunk, p, q) > RENDER_CHUNK_RADIUS) {
@@ -855,12 +875,13 @@ void render_players(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
-        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, fov, ortho);
+        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry,
+        ZNEAR, ZFAR, fov, ortho);
     glUseProgram(attrib->program);
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
     glUniform3f(attrib->camera, s->x, s->y, s->z);
     glUniform1i(attrib->sampler, 0);
-    glUniform1f(attrib->timer, glfwGetTime());
+    glUniform1f(attrib->timer, time_of_day());
     for (int i = 0; i < player_count; i++) {
         Player *other = players + i;
         if (other != player) {
@@ -1167,11 +1188,25 @@ void build_unknown(char messages[MAX_MESSAGES][MAX_TEXT_LENGTH],
     *message_index = (*message_index + 1) % MAX_MESSAGES;
 }
 
+void render_sky(Attrib *attrib, Player *player, GLuint buffer) {
+    State *s = &player->state;
+    float matrix[16];
+    set_matrix_3d(
+        matrix, width, height, 0, 0, 0, s->rx, s->ry,
+        16, 1024, fov, 0);
+    glUseProgram(attrib->program);
+    glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
+    glUniform1i(attrib->sampler, 2);
+    glUniform1f(attrib->timer, time_of_day());
+    draw_triangles_3d(attrib, buffer, 512 * 3);
+}
+
 void render_wireframe(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
-        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, fov, ortho);
+        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry,
+        ZNEAR, ZFAR, fov, ortho);
     int hx, hy, hz;
     int hw = hit_test(0, s->x, s->y, s->z, s->rx, s->ry, &hx, &hy, &hz);
     if (is_obstacle(hw)) {
@@ -1190,7 +1225,7 @@ void render_wireframe_select1(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
-        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, fov, ortho);
+        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, ZNEAR, ZFAR, fov, ortho);
     int hx, hy, hz;
     hx = p1x;
     hy = p1y;
@@ -1211,7 +1246,7 @@ void render_wireframe_select2(Attrib *attrib, Player *player) {
     State *s = &player->state;
     float matrix[16];
     set_matrix_3d(
-        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, fov, ortho);
+        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, ZNEAR, ZFAR, fov, ortho);
     int hx, hy, hz;
     hx = p2x;
     hy = p2y;
@@ -1248,7 +1283,7 @@ void render_item(Attrib *attrib) {
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
     glUniform3f(attrib->camera, 0, 0, 5);
     glUniform1i(attrib->sampler, 0);
-    glUniform1f(attrib->timer, glfwGetTime());
+    glUniform1f(attrib->timer, time_of_day());
     if (is_plant(block_type)) {
         GLuint buffer = gen_plant_buffer(0, 0, 0, 0.5, block_type);
         draw_plant(attrib, buffer);
@@ -1512,9 +1547,20 @@ int main(int argc, char **argv) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     load_png_texture("font.png");
 
+    GLuint sky;
+    glGenTextures(1, &sky);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, sky);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    load_png_texture("sky.png");
+
     Attrib block_attrib = {0};
     Attrib line_attrib = {0};
     Attrib text_attrib = {0};
+    Attrib sky_attrib = {0};
     GLuint program;
 
     program = load_program(
@@ -1525,6 +1571,7 @@ int main(int argc, char **argv) {
     block_attrib.uv = glGetAttribLocation(program, "uv");
     block_attrib.matrix = glGetUniformLocation(program, "matrix");
     block_attrib.sampler = glGetUniformLocation(program, "sampler");
+    block_attrib.sampler2 = glGetUniformLocation(program, "sampler2");
     block_attrib.camera = glGetUniformLocation(program, "camera");
     block_attrib.timer = glGetUniformLocation(program, "timer");
 
@@ -1542,11 +1589,22 @@ int main(int argc, char **argv) {
     text_attrib.matrix = glGetUniformLocation(program, "matrix");
     text_attrib.sampler = glGetUniformLocation(program, "sampler");
 
+    program = load_program(
+        "shaders/sky_vertex.glsl", "shaders/sky_fragment.glsl");
+    sky_attrib.program = program;
+    sky_attrib.position = glGetAttribLocation(program, "position");
+    sky_attrib.normal = glGetAttribLocation(program, "normal");
+    sky_attrib.uv = glGetAttribLocation(program, "uv");
+    sky_attrib.matrix = glGetUniformLocation(program, "matrix");
+    sky_attrib.sampler = glGetUniformLocation(program, "sampler");
+    sky_attrib.timer = glGetUniformLocation(program, "timer");
+
     FPS fps = {0, 0, 0};
     int message_index = 0;
     char messages[MAX_MESSAGES][MAX_TEXT_LENGTH] = {0};
     double last_commit = glfwGetTime();
     double last_update = glfwGetTime();
+    GLuint sky_buffer = gen_sky_buffer();
 
     Player *me = players;
     me->id = 0;
@@ -1923,7 +1981,8 @@ int main(int argc, char **argv) {
         // RENDER 3-D SCENE //
         glClear(GL_COLOR_BUFFER_BIT);
         glClear(GL_DEPTH_BUFFER_BIT);
-
+        render_sky(&sky_attrib, player, sky_buffer);
+        glClear(GL_DEPTH_BUFFER_BIT);
         render_chunks(&block_attrib, player);
         render_players(&block_attrib, player);
         render_wireframe(&line_attrib, player);
@@ -1940,11 +1999,15 @@ int main(int argc, char **argv) {
         float ts = 12;
         float tx = ts / 2;
         float ty = height - ts;
+        int hour = time_of_day() * 24;
+        char am_pm = hour < 12 ? 'a' : 'p';
+        hour = hour % 12;
+        hour = hour ? hour : 12;
         snprintf(
             text_buffer, 1024,
-            "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] %d %s",
-            chunked(x), chunked(y), x, y, z, player_count, chunk_count, fps.fps,
-            replace ? "[REPLACE]" : "");
+            "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] %d%cm %d %s",
+            chunked(x), chunked(y), x, y, z, player_count, chunk_count,
+            hour, am_pm, fps.fps, replace ? "[REPLACE]" : "");
         render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
 
         for (int i = 0; i < MAX_MESSAGES; i++) {
@@ -1994,6 +2057,8 @@ int main(int argc, char **argv) {
             ortho = 0;
             fov = 65;
 
+            render_sky(&sky_attrib, player, sky_buffer);
+            glClear(GL_DEPTH_BUFFER_BIT);
             render_chunks(&block_attrib, player);
             render_players(&block_attrib, player);
 
