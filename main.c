@@ -1339,7 +1339,6 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         }
         if (key == GLFW_KEY_INSERT) {
             replace = !replace;
-            block_type = block_type % 15 + 1;
         }
         if (key == CRAFT_KEY_OBSERVE) {
             observe1 = (observe1 + 1) % player_count;
