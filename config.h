@@ -40,4 +40,11 @@
 #define CHUNK_SIZE 32
 #define COMMIT_INTERVAL 5
 
+// Foocraft
+#define FOOCRAFT_KEY_HIDE_HUD GLFW_KEY_F1
+#define FOOCRAFT_KEY_COPY '['
+#define FOOCRAFT_KEY_PASTE ']'
+#define FOOCRAFT_KEY_SELECT_1 ';'
+#define FOOCRAFT_KEY_SELECT_2 '\''
+
 #endif

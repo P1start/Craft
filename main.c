@@ -39,18 +39,15 @@
 #define RIGHT 2
 
 // Added
-static int macro1 = 0;
-static int macro2 = 0;
-static int macro3 = 0;
 static int copy = 0;
 static int paste = 0;
-static int flood = 0;
 static int command_done = 0;
 static int copyBuffer[100][100][100];
 static int lx, ly, lz, mx, my, mz;
 static int replace = 0;
 static int penwidth = 1;
 static int gravity = 25;
+static int guihide = 0;
 
 static int p1x = 0;
 static int p1y = -1000;
@@ -825,7 +822,6 @@ void build_sphere_solid(int hx, int hy, int hz, int radius, int block_type,
 }
 
 void build_cuboid(int block_type) {
-    macro3 = 0;
     int lx = MIN(p1x, p2x);
     int mx = MAX(p1x, p2x);
     int ly = MIN(p1y, p2y);
@@ -890,7 +886,6 @@ void render_players(Attrib *attrib, Player *player) {
 }
 
 void build_cuboid_hollow(int block_type) {
-    macro3 = 0;
     int lx = MIN(p1x, p2x);
     int mx = MAX(p1x, p2x);
     int ly = MIN(p1y, p2y);
@@ -1065,7 +1060,6 @@ void build_pyramid_inverse_hollow(int block_type) {
 }
 
 void build_line(int block_type, int radius) {
-    macro2 = 0;
 #define plot(x,y,z,radius) build_sphere_solid(x, y, z, radius, block_type, 1)
     float px = (float)p1x;
     float py = (float)p1y;
@@ -1363,10 +1357,10 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         if (key == CRAFT_KEY_BLOCK_TYPE) {
             block_type = (block_type+1) % 16;
         }
-        if (key == '[') {
+        if (key == FOOCRAFT_KEY_COPY) {
             copy = 1;
         }
-        if (key == ']') {
+        if (key == FOOCRAFT_KEY_PASTE) {
             paste = 1;
         }
         if (key == GLFW_KEY_INSERT) {
@@ -1377,6 +1371,9 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         }
         if (key == CRAFT_KEY_OBSERVE_INSET) {
             observe2 = (observe2 + 1) % player_count;
+        }
+        if (key == FOOCRAFT_KEY_HIDE_HUD) {
+            guihide = !guihide;
         }
     }
 }
@@ -1861,7 +1858,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (glfwGetKey(window, ';') && !typing) {
+        if (glfwGetKey(window, FOOCRAFT_KEY_SELECT_1) && !typing) {
             int hw = hit_test(0, x, y, z, rx, ry,
                 &p1x, &p1y, &p1z);
             if (p2y < -500) {
@@ -1871,7 +1868,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (glfwGetKey(window, '\'') && !typing) {
+        if (glfwGetKey(window, FOOCRAFT_KEY_SELECT_2) && !typing) {
             int hw = hit_test(0, x, y, z, rx, ry,
                 &p2x, &p2y, &p2z);
             if (p1y < -500) {
@@ -1982,14 +1979,18 @@ int main(int argc, char **argv) {
         glClear(GL_DEPTH_BUFFER_BIT);
         int face_count = render_chunks(&block_attrib, player);
         render_players(&block_attrib, player);
-        render_wireframe(&line_attrib, player);
-        render_wireframe_select1(&line_attrib, player);
-        render_wireframe_select2(&line_attrib, player);
+        if (!guihide) {
+            render_wireframe(&line_attrib, player);
+            render_wireframe_select1(&line_attrib, player);
+            render_wireframe_select2(&line_attrib, player);
+        }
 
         // RENDER HUD //
         glClear(GL_DEPTH_BUFFER_BIT);
-        render_crosshairs(&line_attrib);
-        render_item(&block_attrib);
+        if (!guihide) {
+            render_crosshairs(&line_attrib);
+            render_item(&block_attrib);
+        }
 
         // RENDER TEXT //
         char text_buffer[1024];
@@ -2005,16 +2006,16 @@ int main(int argc, char **argv) {
             "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] %d%cm %dfps %s",
             chunked(x), chunked(y), x, y, z, player_count, chunk_count,
             hour, am_pm, fps.fps, replace ? "[REPLACE]" : "");
-        render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
+        if (!guihide) render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
 
         for (int i = 0; i < MAX_MESSAGES; i++) {
             int index = (message_index + i) % MAX_MESSAGES;
-            if (strlen(messages[index])) {
+            if (!guihide && strlen(messages[index])) {
                 ty -= ts * 2;
                 render_text(&text_attrib, LEFT, tx, ty, ts, messages[index]);
             }
         }
-        if (typing) {
+        if (!guihide && typing) {
             ty -= ts * 2;
             snprintf(text_buffer, 1024, "> %s", typing_buffer);
             render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
@@ -2023,7 +2024,7 @@ int main(int argc, char **argv) {
             render_text(&text_attrib, CENTER, width / 2, ts, ts, player->name);
         }
         Player *other = player_crosshair(player);
-        if (other) {
+        if (!guihide && other) {
             render_text(&text_attrib, CENTER,
                 width / 2, height / 2 - ts - 24, ts, other->name);
         }
