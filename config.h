@@ -46,5 +46,6 @@
 #define FOOCRAFT_KEY_PASTE ']'
 #define FOOCRAFT_KEY_SELECT_1 ';'
 #define FOOCRAFT_KEY_SELECT_2 '\''
+#define FOOCRAFT_KEY_BUILD_COMMAND '`'
 
 #endif

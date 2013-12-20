@@ -1399,7 +1399,7 @@ void on_char(GLFWwindow *window, unsigned int u) {
             typing_buffer[0] = '/';
             typing_buffer[1] = '\0';
         }
-        if (u == '`') {
+        if (u == FOOCRAFT_KEY_BUILD_COMMAND) {
             typing = 1;
             typing_buffer[0] = '~';
             typing_buffer[1] = '\0';
