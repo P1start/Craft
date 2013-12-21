@@ -1,7 +1,8 @@
-#ifndef __APPLE_CC__
-    #include <GL/glew.h>
+#ifdef _WIN32
+    #include <windows.h>
 #endif
 
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <math.h>
 #include <stdio.h>
@@ -1472,6 +1473,10 @@ void create_window() {
 }
 
 int main(int argc, char **argv) {
+    #ifdef _WIN32
+        WSADATA wsa_data;
+        WSAStartup(MAKEWORD(2, 2), &wsa_data);
+    #endif
     srand(time(NULL));
     rand();
     if (argc == 2 || argc == 3) {
@@ -1514,11 +1519,9 @@ int main(int argc, char **argv) {
     glfwSetMouseButtonCallback(window, on_mouse_button);
     glfwSetScrollCallback(window, on_scroll);
 
-    #ifndef __APPLE__
-        if (glewInit() != GLEW_OK) {
-            return -1;
-        }
-    #endif
+    if (glewInit() != GLEW_OK) {
+        return -1;
+    }
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
