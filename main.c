@@ -2003,9 +2003,9 @@ int main(int argc, char **argv) {
         hour = hour ? hour : 12;
         snprintf(
             text_buffer, 1024,
-            "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] %d%cm %dfps %s",
+            "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d, %d] %d%cm %dfps %s",
             chunked(x), chunked(z), x, y, z, player_count, chunk_count,
-            hour, am_pm, fps.fps, replace ? "[REPLACE]" : "");
+            face_count * 2, hour, am_pm, fps.fps, replace ? "[REPLACE]" : "");
         if (!guihide) render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
 
         for (int i = 0; i < MAX_MESSAGES; i++) {
