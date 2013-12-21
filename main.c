@@ -2004,7 +2004,7 @@ int main(int argc, char **argv) {
         snprintf(
             text_buffer, 1024,
             "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d] %d%cm %dfps %s",
-            chunked(x), chunked(y), x, y, z, player_count, chunk_count,
+            chunked(x), chunked(z), x, y, z, player_count, chunk_count,
             hour, am_pm, fps.fps, replace ? "[REPLACE]" : "");
         if (!guihide) render_text(&text_attrib, LEFT, tx, ty, ts, text_buffer);
 
