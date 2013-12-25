@@ -95,6 +95,7 @@ typedef struct {
     GLuint extra2;
     GLuint extra3;
     GLuint extra4;
+    GLuint extra5;
 } Attrib;
 
 static GLFWwindow *window;
@@ -870,6 +871,7 @@ int render_chunks(Attrib *attrib, Player *player) {
     ensure_chunks(s->x, s->y, s->z, 0);
     int p = chunked(s->x);
     int q = chunked(s->z);
+    float light = get_daylight();
     float matrix[16];
     set_matrix_3d(
         matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, fov, ortho);
@@ -878,9 +880,10 @@ int render_chunks(Attrib *attrib, Player *player) {
     glUniform3f(attrib->camera, s->x, s->y, s->z);
     glUniform1i(attrib->sampler, 0);
     glUniform1i(attrib->extra1, 2);
-    glUniform1f(attrib->extra2, get_daylight());
+    glUniform1f(attrib->extra2, light);
     glUniform1i(attrib->extra3, SHOW_SKY_DOME);
     glUniform1f(attrib->extra4, RENDER_CHUNK_RADIUS * 32);
+    glUniform3f(attrib->extra5, 0.59 * light, 0.74 * light, 0.85 * light);
     glUniform1f(attrib->timer, time_of_day());
     for (int i = 0; i < chunk_count; i++) {
         Chunk *chunk = chunks + i;
@@ -1568,7 +1571,6 @@ int main(int argc, char **argv) {
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glLogicOp(GL_INVERT);
-    glClearColor(0.53, 0.81, 0.92, 1.00);
 
     GLuint texture;
     glGenTextures(1, &texture);
@@ -1614,6 +1616,7 @@ int main(int argc, char **argv) {
     block_attrib.extra2 = glGetUniformLocation(program, "daylight");
     block_attrib.extra3 = glGetUniformLocation(program, "show_sky_dome");
     block_attrib.extra4 = glGetUniformLocation(program, "fog_distance");
+    block_attrib.extra5 = glGetUniformLocation(program, "fog_color");
     block_attrib.camera = glGetUniformLocation(program, "camera");
     block_attrib.timer = glGetUniformLocation(program, "timer");
 
@@ -2000,7 +2003,8 @@ int main(int argc, char **argv) {
                 message_index = (message_index + 1) % MAX_MESSAGES;
             }
             char format[32];
-            snprintf(format, sizeof(format), "N,%%d,%%%ds", MAX_NAME_LENGTH - 1);
+            snprintf(
+                format, sizeof(format), "N,%%d,%%%ds", MAX_NAME_LENGTH - 1);
             char name[MAX_NAME_LENGTH];
             if (sscanf(buffer, format, &pid, name) == 2) {
                 Player *player = find_player(pid);
@@ -2017,6 +2021,7 @@ int main(int argc, char **argv) {
         }
 
         // PREPARE TO RENDER //
+        float light = get_daylight();
         observe1 = observe1 % player_count;
         observe2 = observe2 % player_count;
         delete_chunks();
@@ -2027,6 +2032,7 @@ int main(int argc, char **argv) {
         Player *player = players + observe1;
 
         // RENDER 3-D SCENE //
+        glClearColor(0.59 * light, 0.74 * light, 0.85 * light, 1.00);
         glClear(GL_COLOR_BUFFER_BIT);
         glClear(GL_DEPTH_BUFFER_BIT);
         if (SHOW_SKY_DOME) {
@@ -2112,7 +2118,7 @@ int main(int argc, char **argv) {
             glClearColor(0, 0, 0, 1);
             glClear(GL_COLOR_BUFFER_BIT);
             glScissor(width - pw - offset, offset, pw, ph);
-            glClearColor(0.53, 0.81, 0.92, 1.00);
+            glClearColor(0.59 * light, 0.74 * light, 0.85 * light, 1.00);
             glClear(GL_COLOR_BUFFER_BIT);
             glDisable(GL_SCISSOR_TEST);
             glClear(GL_DEPTH_BUFFER_BIT);
