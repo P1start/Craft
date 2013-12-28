@@ -1156,6 +1156,20 @@ void build_snow(int x, int y, int z, int radius) {
     }
 }
 
+void build_desnow(int x, int y, int z, int radius) {
+    for (int px = -radius; px <= radius; px++) {
+        for (int py = -radius; py <= radius; py++) {
+            for (int pz = -radius; pz <= radius; pz++) {
+                if (   px*px + py*py + pz*pz <= radius*(radius + 1)
+                    && get_block(px + x, py + y, pz + z) == 9
+                    && is_transparent(get_block(px + x, py + y + 1, pz + z))) {
+                    set_block(px + x, py + y, pz + z, 1);
+                }
+            }
+        }
+    }
+}
+
 void build_text(char *str, int block_type) {
     // TODO: put stuff here
 }
@@ -1894,6 +1908,11 @@ int main(int argc, char **argv) {
                     int hw = hit_test(0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
                     build_snow(hx, hy, hz, arg1);
+                } else if (strcmp(command, "desnow") == 0 && success == 2) {
+                    int hx, hy, hz;
+                    int hw = hit_test(0, x, y, z, rx, ry,
+                        &hx, &hy, &hz);
+                    build_desnow(hx, hy, hz, arg1);
                 //} else if (strcmp(first5, "text ") == 0) {
                 //    build_text(buildc + 5, block_type);
                 } else if (strcmp(command, "copy") == 0 && success == 1) {
