@@ -16,6 +16,7 @@
 #include "item.h"
 #include "map.h"
 #include "matrix.h"
+#include "noise.h"
 #include "util.h"
 #include "world.h"
 
