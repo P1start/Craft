@@ -1537,11 +1537,14 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
             replace = !replace;
         }
         if (key == CRAFT_KEY_ITEM_NEXT) {
-            item_index = (item_index + 1) % item_count;
+            item_index++;
+            if (item_index > item_count) {
+                item_index = 0;
+            }
         }
         if (key == CRAFT_KEY_ITEM_PREV) {
             item_index--;
-            if (item_index < 0) {
+            if (item_index < -1) {
                 item_index = item_count - 1;
             }
         }
@@ -1590,12 +1593,15 @@ void on_scroll(GLFWwindow *window, double xdelta, double ydelta) {
     static double ypos = 0;
     ypos += ydelta;
     if (ypos < -SCROLL_THRESHOLD) {
-        item_index = (item_index + 1) % item_count;
+        item_index++;
+        if (item_index > item_count) {
+            item_index = 0;
+        }
         ypos = 0;
     }
     if (ypos > SCROLL_THRESHOLD) {
         item_index--;
-        if (item_index < 0) {
+        if (item_index < -1) {
             item_index = item_count - 1;
         }
         ypos = 0;
