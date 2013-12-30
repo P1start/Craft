@@ -13,9 +13,9 @@
 #include "config.h"
 #include "cube.h"
 #include "db.h"
+#include "item.h"
 #include "map.h"
 #include "matrix.h"
-#include "noise.h"
 #include "util.h"
 #include "world.h"
 
@@ -111,34 +111,12 @@ static int middle_click = 0;
 static int observe1 = 0;
 static int observe2 = 0;
 static int flying = 0;
-static int block_type = 1;
+static int item_index = 0;
 static int scale = 1;
 static int ortho = 0;
 static float fov = 65;
 static int typing = 0;
 static char typing_buffer[MAX_TEXT_LENGTH] = {0};
-
-int is_plant(int w) {
-    return w > 16;
-}
-
-int is_obstacle(int w) {
-    w = ABS(w);
-    return w > 0 && w < 16;
-}
-
-int is_transparent(int w) {
-    w = ABS(w);
-    return w == 0 || w == 10 || w == 15 || is_plant(w);
-}
-
-int is_destructable(int w) {
-    return w > 0 && w != 16;
-}
-
-int is_selectable(int w) {
-    return w > 0 && w <= 15;
-}
 
 int chunked(float x) {
     return floorf(roundf(x) / CHUNK_SIZE);
@@ -1468,13 +1446,14 @@ void render_item(Attrib *attrib) {
     glUniform3f(attrib->camera, 0, 0, 5);
     glUniform1i(attrib->sampler, 0);
     glUniform1f(attrib->timer, time_of_day());
-    if (is_plant(block_type)) {
-        GLuint buffer = gen_plant_buffer(0, 0, 0, 0.5, block_type);
+    int w = items[item_index];
+    if (is_plant(w)) {
+        GLuint buffer = gen_plant_buffer(0, 0, 0, 0.5, w);
         draw_plant(attrib, buffer);
         del_buffer(buffer);
     }
     else {
-        GLuint buffer = gen_cube_buffer(0, 0, 0, 0.5, block_type);
+        GLuint buffer = gen_cube_buffer(0, 0, 0, 0.5, w);
         draw_cube(attrib, buffer);
         del_buffer(buffer);
     }
@@ -1542,13 +1521,10 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
             flying = !flying;
         }
         if (key >= '1' && key <= '9') {
-            block_type = key - '1' + 1;
+            item_index = key - '1';
         }
         if (key == '0') {
-            block_type = 10;
-        }
-        if (key == CRAFT_KEY_BLOCK_TYPE) {
-            block_type = (block_type+1) % 16;
+            item_index = 9;
         }
         if (key == FOOCRAFT_KEY_COPY) {
             copy = 1;
@@ -1558,6 +1534,15 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         }
         if (key == GLFW_KEY_INSERT) {
             replace = !replace;
+        }
+        if (key == CRAFT_KEY_ITEM_NEXT) {
+            item_index = (item_index + 1) % item_count;
+        }
+        if (key == CRAFT_KEY_ITEM_PREV) {
+            item_index--;
+            if (item_index < 0) {
+                item_index = item_count - 1;
+            }
         }
         if (key == CRAFT_KEY_OBSERVE) {
             observe1 = (observe1 + 1) % player_count;
@@ -1604,16 +1589,13 @@ void on_scroll(GLFWwindow *window, double xdelta, double ydelta) {
     static double ypos = 0;
     ypos += ydelta;
     if (ypos < -SCROLL_THRESHOLD) {
-        block_type++;
-        if (block_type > 15) {
-            block_type = 0;
-        }
+        item_index = (item_index + 1) % item_count;
         ypos = 0;
     }
     if (ypos > SCROLL_THRESHOLD) {
-        block_type--;
-        if (block_type < 0) {
-            block_type = 15;
+        item_index--;
+        if (item_index < 0) {
+            item_index = item_count - 1;
         }
         ypos = 0;
     }
@@ -1934,8 +1916,7 @@ int main(int argc, char **argv) {
         if (left_click) {
             left_click = 0;
             int hx, hy, hz;
-            int hw = hit_test(0, x, y, z, rx, ry,
-                &hx, &hy, &hz);
+            int hw = hit_test(0, x, y, z, rx, ry, &hx, &hy, &hz);
             if (hy > 0 && hy < 256 && is_destructable(hw)) {
                 set_block(hx, hy, hz, 0);
                 if (penwidth <= 1) {
@@ -1958,20 +1939,22 @@ int main(int argc, char **argv) {
             if (hy > 0 && hy < 256 && is_obstacle(hw)) {
                 if (//!player_intersects_block(2, x, y, z, hx, hy, hz) &&
                     penwidth <= 1) {
-                    set_block(hx, hy, hz, block_type);
+                    set_block(hx, hy, hz, items[item_index]);
                 } else if (penwidth > 1) {
                     build_sphere_solid(hx, hy, hz,
-                            ceil(penwidth/2.0) - 1, block_type, 1);
+                            ceil(penwidth/2.0) - 1, items[item_index], 1);
                 }
             }
         }
         if (middle_click) {
             middle_click = 0;
             int hx, hy, hz;
-            int hw = hit_test(0, x, y, z, rx, ry,
-                &hx, &hy, &hz);
-            if (is_selectable(hw)) {
-                block_type = hw;
+            int hw = hit_test(0, x, y, z, rx, ry, &hx, &hy, &hz);
+            for (int i = 0; i < item_count; i++) {
+                if (items[i] == hw) {
+                    item_index = i;
+                    break;
+                }
             }
         }
 
@@ -1990,37 +1973,37 @@ int main(int argc, char **argv) {
                 if (strcmp(command, "sphere") == 0 && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(0, x, y, z, rx, ry, &hx, &hy, &hz);
-                    build_sphere(hx, hy, hz, arg1, block_type, 0);
+                    build_sphere(hx, hy, hz, arg1, items[item_index], 0);
                 } else if (strcmp(command, "sphere-solid") == 0
                         && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(0, x, y, z, rx, ry, &hx, &hy, &hz);
-                    build_sphere_solid(hx, hy, hz, arg1, block_type, 0);
+                    build_sphere_solid(hx, hy, hz, arg1, items[item_index], 0);
                 } else if (strcmp(command, "cuboid") == 0 && success == 1) {
-                    build_cuboid(block_type);
+                    build_cuboid(items[item_index]);
                 } else if (strcmp(command, "cuboid-hollow") == 0
                         && success == 1) {
-                    build_cuboid_hollow(block_type);
+                    build_cuboid_hollow(items[item_index]);
                 } else if (strcmp(command, "pyramid") == 0 && success == 1) {
-                    build_pyramid(block_type);
+                    build_pyramid(items[item_index]);
                 } else if (strcmp(command, "pyramid-hollow") == 0
                         && success == 1) {
-                    build_pyramid_hollow(block_type);
+                    build_pyramid_hollow(items[item_index]);
                 } else if (strcmp(command, "pyramid-inverse") == 0
                         && success == 1) {
-                    build_pyramid_inverse(block_type);
+                    build_pyramid_inverse(items[item_index]);
                 } else if (strcmp(command, "pyramid-inverse-hollow") == 0
                         && success == 1) {
-                    build_pyramid_inverse_hollow(block_type);
+                    build_pyramid_inverse_hollow(items[item_index]);
                 } else if (strcmp(command, "line") == 0 && success == 1) {
-                    build_line(block_type, 0);
+                    build_line(items[item_index], 0);
                 } else if (strcmp(command, "line") == 0 && success == 2) {
-                    build_line(block_type, ceil(arg1/2.0) - 1);
+                    build_line(items[item_index], ceil(arg1/2.0) - 1);
                 } else if (strcmp(command, "fill") == 0 && success == 1) {
                     int hx, hy, hz;
                     int hw = hit_test(0, x, y, z, rx, ry,
                         &hx, &hy, &hz);
-                    build_fill(hx, hy, hz, hw, block_type);
+                    build_fill(hx, hy, hz, hw, items[item_index]);
                 } else if (strcmp(command, "snow") == 0 && success == 2) {
                     int hx, hy, hz;
                     int hw = hit_test(0, x, y, z, rx, ry,
@@ -2032,7 +2015,7 @@ int main(int argc, char **argv) {
                         &hx, &hy, &hz);
                     build_desnow(hx, hy, hz, arg1);
                 //} else if (strcmp(first5, "text ") == 0) {
-                //    build_text(buildc + 5, block_type);
+                //    build_text(buildc + 5, items[item_index]);
                 } else if (strcmp(command, "copy") == 0 && success == 1) {
                     build_copy();
                 } else if (strcmp(command, "paste") == 0 && success == 1) {

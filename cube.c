@@ -1,5 +1,6 @@
 #include <math.h>
 #include "cube.h"
+#include "item.h"
 #include "matrix.h"
 #include "util.h"
 
@@ -190,11 +191,12 @@ void make_cube(
     int left, int right, int top, int bottom, int front, int back,
     float x, float y, float z, float n, int w)
 {
-    int wleft, wright, wtop, wbottom, wfront, wback;
-    w--;
-    wbottom = w;
-    wleft = wright = wfront = wback = w + 16;
-    wtop = w + 32;
+    int wleft = blocks[w][0];
+    int wright = blocks[w][1];
+    int wtop = blocks[w][2];
+    int wbottom = blocks[w][3];
+    int wfront = blocks[w][4];
+    int wback = blocks[w][5];
     make_cube_faces(
         data, ao,
         left, right, top, bottom, front, back,
@@ -211,9 +213,9 @@ void make_plant(
     float a = 0;
     float b = s;
     float du, dv;
-    w--;
+    w = plants[w];
     du = (w % 16) * s;
-    dv = (w / 16 * 3) * s;
+    dv = (w / 16) * s;
     float x, y, z;
     x = y = z = 0;
     // left
