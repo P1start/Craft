@@ -1710,12 +1710,10 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ENTER) {
         if (typing) {
             typing = 0;
-            if (typing_buffer[0] != '~') {
-                client_talk(typing_buffer);
-            } else {
+            if (typing_buffer[0] == '~') {
                 command_done = 1;
             }
-            if (typing_buffer[0] == '?') {
+            else if (typing_buffer[0] == '?') {
                 Player *player = players;
                 int x, y, z, face;
                 if (hit_test_face(player, &x, &y, &z, &face)) {
