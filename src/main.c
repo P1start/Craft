@@ -1817,8 +1817,8 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
         }
         if (key == CRAFT_KEY_ITEM_NEXT) {
             item_index++;
-            if (item_index > item_count) {
-                item_index = 0;
+            if (item_index >= item_count) {
+                item_index = -1;
             }
         }
         if (key == CRAFT_KEY_ITEM_PREV) {
@@ -1878,8 +1878,8 @@ void on_scroll(GLFWwindow *window, double xdelta, double ydelta) {
     ypos += ydelta;
     if (ypos < -SCROLL_THRESHOLD) {
         item_index++;
-        if (item_index > item_count) {
-            item_index = 0;
+        if (item_index >= item_count) {
+            item_index = -1;
         }
         ypos = 0;
     }
