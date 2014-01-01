@@ -760,7 +760,7 @@ int _gen_sign_buffer(
 {
     static const int face_dx[4] = {0, 0, -1, 1};
     static const int face_dz[4] = {1, -1, 0, 0};
-    int result = 0;
+    int count = 0;
     float max_width = 64;
     char lines[1024];
     int rows = wrap(text, max_width, lines, 1024);
@@ -771,7 +771,6 @@ int _gen_sign_buffer(
     float ry = y + n * (rows - 1) * 0.625;
     char *key;
     char *line = strtok_r(lines, "\n", &key);
-    int index = 0;
     while (line) {
         int length = strlen(line);
         int line_width = string_width(line);
@@ -786,10 +785,11 @@ int _gen_sign_buffer(
             }
             rx += dx * glyph_width / max_width / 2;
             rz += dz * glyph_width / max_width / 2;
-            make_character_3d(
-                data + index * 30, rx, ry, rz, n / 2, n, face, line[i]);
-            result++;
-            index++;
+            if (line[i] != ' ') {
+                make_character_3d(
+                    data + count * 30, rx, ry, rz, n / 2, n, face, line[i]);
+                count++;
+            }
             rx += dx * glyph_width / max_width / 2;
             rz += dz * glyph_width / max_width / 2;
         }
@@ -800,7 +800,7 @@ int _gen_sign_buffer(
             break;
         }
     }
-    return result;
+    return count;
 }
 
 void gen_sign_buffer(Chunk *chunk) {
