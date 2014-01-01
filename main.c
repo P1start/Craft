@@ -338,14 +338,14 @@ void draw_text(Attrib *attrib, GLuint buffer, int length) {
 
 void draw_signs(Attrib *attrib, Chunk *chunk) {
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(-32, -32);
+    glPolygonOffset(-64, -64);
     draw_triangles_3d_text(attrib, chunk->sign_buffer, chunk->sign_faces * 6);
     glDisable(GL_POLYGON_OFFSET_FILL);
 }
 
 void draw_sign(Attrib *attrib, GLuint buffer, int length) {
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(-32, -32);
+    glPolygonOffset(-64, -64);
     draw_triangles_3d_text(attrib, buffer, length * 6);
     glDisable(GL_POLYGON_OFFSET_FILL);
 }
@@ -755,64 +755,71 @@ void occlusion(char neighbors[27], float result[6][4]) {
     }
 }
 
-void _gen_sign_buffer(
+int _gen_sign_buffer(
     GLfloat *data, float x, float y, float z, int face, const char *text)
 {
     static const int face_dx[4] = {0, 0, -1, 1};
     static const int face_dz[4] = {1, -1, 0, 0};
-    static const int advance[96] = {
-        2, 2, 4, 7, 6, 9, 7, 2, 3, 3, 4, 6, 3, 5, 2, 7,
-        6, 3, 6, 6, 6, 6, 6, 6, 6, 6, 2, 3, 5, 6, 5, 7,
-        8, 6, 6, 6, 6, 6, 6, 6, 6, 4, 6, 6, 5, 8, 8, 6,
-        6, 7, 6, 6, 6, 6, 8, 10, 8, 6, 6, 3, 6, 3, 6, 6,
-        4, 7, 6, 6, 6, 6, 5, 6, 6, 2, 5, 5, 2, 9, 6, 6,
-        6, 6, 6, 6, 5, 6, 6, 6, 6, 6, 6, 4, 2, 5, 7, 0
-    };
-    int length = MIN(strlen(text), 48);
-    int wrap = 8;
-    int rows = length / wrap + ((length % wrap) ? 1 : 0);
+    int result = 0;
+    float max_width = 64;
+    char lines[1024];
+    int rows = wrap(text, max_width, lines, 1024);
+    rows = MIN(rows, 5);
     int dx = face_dx[face];
     int dz = face_dz[face];
-    float n = 1.0 / (wrap + 1);
-    x -= n * dx * (MIN(length, wrap) - 1) / 2.0;
-    z -= n * dz * (MIN(length, wrap) - 1) / 2.0;
-    y += n * (rows - 1) * 0.75;
-    float sx = x;
-    float sz = z;
+    float n = 1.0 / (max_width / 10);
+    float ry = y + n * (rows - 1) * 0.625;
+    char *key;
+    char *line = strtok_r(lines, "\n", &key);
     int index = 0;
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < wrap && index < length; j++) {
+    while (line) {
+        int length = strlen(line);
+        int line_width = string_width(line);
+        line_width = MIN(line_width, max_width);
+        float rx = x - dx * line_width / max_width / 2;
+        float rz = z - dz * line_width / max_width / 2;
+        for (int i = 0; i < length; i++) {
+            int glyph_width = char_width(line[i]);
+            line_width -= glyph_width;
+            if (line_width < 0) {
+                break;
+            }
+            rx += dx * glyph_width / max_width / 2;
+            rz += dz * glyph_width / max_width / 2;
             make_character_3d(
-                data + index * 30, x, y, z, n / 2, n, face, text[index]);
+                data + index * 30, rx, ry, rz, n / 2, n, face, line[i]);
+            result++;
             index++;
-            x += n * dx;
-            z += n * dz;
+            rx += dx * glyph_width / max_width / 2;
+            rz += dz * glyph_width / max_width / 2;
         }
-        x = sx;
-        z = sz;
-        y -= n * 1.5;
+        ry -= n * 1.25;
+        line = strtok_r(NULL, "\n", &key);
+        rows--;
+        if (rows <= 0) {
+            break;
+        }
     }
+    return result;
 }
 
 void gen_sign_buffer(Chunk *chunk) {
     SignList *signs = &chunk->signs;
 
     // first pass - count characters
-    int faces = 0;
+    int max_faces = 0;
     for (int i = 0; i < signs->size; i++) {
         Sign *e = signs->data + i;
-        int length = MIN(strlen(e->text), 48);
-        faces += length;
+        max_faces += strlen(e->text);
     }
 
     // second pass - generate geometry
-    GLfloat *data = malloc_faces(5, faces);
-    int offset = 0;
+    GLfloat *data = malloc_faces(5, max_faces);
+    int faces = 0;
     for (int i = 0; i < signs->size; i++) {
         Sign *e = signs->data + i;
-        int length = MIN(strlen(e->text), 48);
-        _gen_sign_buffer(data + offset, e->x, e->y, e->z, e->face, e->text);
-        offset += length * 30;
+        faces += _gen_sign_buffer(
+            data + faces * 30, e->x, e->y, e->z, e->face, e->text);
     }
 
     del_buffer(chunk->sign_buffer);
@@ -1232,10 +1239,11 @@ void render_sign(Attrib *attrib, Player *player) {
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
     glUniform1i(attrib->sampler, 3);
     glUniform1i(attrib->extra1, 1);
-    char *text = typing_buffer + 1;
-    int length = MIN(strlen(text), 48);
-    GLfloat *data = malloc_faces(5, length);
-    _gen_sign_buffer(data, x, y, z, face, text);
+    char text[MAX_SIGN_LENGTH];
+    strncpy(text, typing_buffer + 1, MAX_SIGN_LENGTH);
+    text[MAX_SIGN_LENGTH - 1] = '\0';
+    GLfloat *data = malloc_faces(5, strlen(text));
+    int length = _gen_sign_buffer(data, x, y, z, face, text);
     GLuint buffer = gen_faces(5, length, data);
     draw_sign(attrib, buffer, length);
     del_buffer(buffer);
@@ -1732,19 +1740,29 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
     }
     if (key == GLFW_KEY_ENTER) {
         if (typing) {
-            typing = 0;
             if (typing_buffer[0] == '.') {
+                typing = 0;
                 command_done = 1;
             }
-            else if (typing_buffer[0] == CRAFT_KEY_SIGN) {
-                Player *player = players;
-                int x, y, z, face;
-                if (hit_test_face(player, &x, &y, &z, &face)) {
-                    set_sign(x, y, z, face, typing_buffer + 1);
+            if (mods & GLFW_MOD_SHIFT) {
+                int n = strlen(typing_buffer);
+                if (n < MAX_TEXT_LENGTH - 1) {
+                    typing_buffer[n] = '\n';
+                    typing_buffer[n + 1] = '\0';
                 }
             }
             else {
-                client_talk(typing_buffer);
+                typing = 0;
+                if (typing_buffer[0] == CRAFT_KEY_SIGN) {
+                    Player *player = players;
+                    int x, y, z, face;
+                    if (hit_test_face(player, &x, &y, &z, &face)) {
+                        set_sign(x, y, z, face, typing_buffer + 1);
+                    }
+                }
+                else {
+                    client_talk(typing_buffer);
+                }
             }
         }
         else {
