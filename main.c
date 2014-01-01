@@ -26,13 +26,13 @@
 #define MAX_RECV_LENGTH 1024
 #define MAX_TEXT_LENGTH 256
 #define INTRO_TEXT_1 "Foocraft version 0.1"
-#define INTRO_TEXT_2 "Type ~help for help."
+#define INTRO_TEXT_2 "Type .help for help."
 #define HELP_TEXT_1 \
-    "Build commands: ~sphere[-solid] <RADIUS>, ~cuboid[-hollow], ~line [width],"
-#define HELP_TEXT_2 "                ~help, ~pyramid[-inverse][-hollow], ~fill, ~copy,"
-#define HELP_TEXT_3 "                ~paste, ~selection [x1 y1 z1 x2 y2 z2], ~replace, ~width"
-#define HELP_TEXT_4 "                ~gravity [gravity]"
-#define UNKNOWN_TEXT_1 "Unknown command. Type ~help for help."
+    "Build commands: .sphere[-solid] <RADIUS>, .cuboid[-hollow], .line [width],"
+#define HELP_TEXT_2 "                .help, .pyramid[-inverse][-hollow], .fill, .copy,"
+#define HELP_TEXT_3 "                .paste, .selection [x1 y1 z1 x2 y2 z2], .replace, .width"
+#define HELP_TEXT_4 "                .gravity [gravity]"
+#define UNKNOWN_TEXT_1 "Unknown command. Type .help for help."
 #define MAX_NAME_LENGTH 32
 
 #define LEFT 0
@@ -337,10 +337,17 @@ void draw_text(Attrib *attrib, GLuint buffer, int length) {
 }
 
 void draw_signs(Attrib *attrib, Chunk *chunk) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-32, -32);
     draw_triangles_3d_text(attrib, chunk->sign_buffer, chunk->sign_faces * 6);
-    glDisable(GL_BLEND);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+}
+
+void draw_sign(Attrib *attrib, GLuint buffer, int length) {
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-32, -32);
+    draw_triangles_3d_text(attrib, buffer, length * 6);
+    glDisable(GL_POLYGON_OFFSET_FILL);
 }
 
 void draw_cube(Attrib *attrib, GLuint buffer) {
@@ -753,6 +760,14 @@ void _gen_sign_buffer(
 {
     static const int face_dx[4] = {0, 0, -1, 1};
     static const int face_dz[4] = {1, -1, 0, 0};
+    static const int advance[96] = {
+        2, 2, 4, 7, 6, 9, 7, 2, 3, 3, 4, 6, 3, 5, 2, 7,
+        6, 3, 6, 6, 6, 6, 6, 6, 6, 6, 2, 3, 5, 6, 5, 7,
+        8, 6, 6, 6, 6, 6, 6, 6, 6, 4, 6, 6, 5, 8, 8, 6,
+        6, 7, 6, 6, 6, 6, 8, 10, 8, 6, 6, 3, 6, 3, 6, 6,
+        4, 7, 6, 6, 6, 6, 5, 6, 6, 2, 5, 5, 2, 9, 6, 6,
+        6, 6, 6, 6, 5, 6, 6, 6, 6, 6, 6, 4, 2, 5, 7, 0
+    };
     int length = MIN(strlen(text), 48);
     int wrap = 8;
     int rows = length / wrap + ((length % wrap) ? 1 : 0);
@@ -1045,23 +1060,6 @@ void set_sign(int x, int y, int z, int face, const char *text) {
 }
 
 void _set_block(int p, int q, int x, int y, int z, int w) {
-    // TODO: remove this check after server data is cleaned up
-    int ok = 0;
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dz = -1; dz <= 1; dz++) {
-            if (chunked(x + dx) == p && chunked(z + dz) == q &&
-                chunked(x) == p - dx && chunked(z) == q - dz)
-            {
-                ok = 1;
-            }
-        }
-    }
-    if (!ok) {
-        printf("Invalid _set_block call: (%d, %d) (%d, %d, %d) %d\n",
-            p, q, x, y, z, w);
-        return;
-    }
-    // END TODO
     Chunk *chunk = find_chunk(p, q);
     if (chunk) {
         Map *map = &chunk->map;
@@ -1205,7 +1203,7 @@ void render_signs(Attrib *attrib, Player *player) {
     glUseProgram(attrib->program);
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
     glUniform1i(attrib->sampler, 3);
-    glUniform1i(attrib->extra1, 0);
+    glUniform1i(attrib->extra1, 1);
     for (int i = 0; i < chunk_count; i++) {
         Chunk *chunk = chunks + i;
         if (chunk_distance(chunk, p, q) > RENDER_CHUNK_RADIUS) {
@@ -1216,6 +1214,31 @@ void render_signs(Attrib *attrib, Player *player) {
         }
         draw_signs(attrib, chunk);
     }
+}
+
+void render_sign(Attrib *attrib, Player *player) {
+    if (!typing || typing_buffer[0] != CRAFT_KEY_SIGN) {
+        return;
+    }
+    int x, y, z, face;
+    if (!hit_test_face(player, &x, &y, &z, &face)) {
+        return;
+    }
+    State *s = &player->state;
+    float matrix[16];
+    set_matrix_3d(
+        matrix, width, height, s->x, s->y, s->z, s->rx, s->ry, fov, ortho);
+    glUseProgram(attrib->program);
+    glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
+    glUniform1i(attrib->sampler, 3);
+    glUniform1i(attrib->extra1, 1);
+    char *text = typing_buffer + 1;
+    int length = MIN(strlen(text), 48);
+    GLfloat *data = malloc_faces(5, length);
+    _gen_sign_buffer(data, x, y, z, face, text);
+    GLuint buffer = gen_faces(5, length, data);
+    draw_sign(attrib, buffer, length);
+    del_buffer(buffer);
 }
 
 void render_players(Attrib *attrib, Player *player) {
@@ -1675,7 +1698,7 @@ void render_text(
     glUseProgram(attrib->program);
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
     glUniform1i(attrib->sampler, 1);
-    glUniform1i(attrib->extra1, 1);
+    glUniform1i(attrib->extra1, 0);
     int length = strlen(text);
     x -= n * justify * (length - 1) / 2;
     GLuint buffer = gen_text_buffer(x, y, n, text);
@@ -1710,10 +1733,10 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ENTER) {
         if (typing) {
             typing = 0;
-            if (typing_buffer[0] == '~') {
+            if (typing_buffer[0] == '.') {
                 command_done = 1;
             }
-            else if (typing_buffer[0] == '?') {
+            else if (typing_buffer[0] == CRAFT_KEY_SIGN) {
                 Player *player = players;
                 int x, y, z, face;
                 if (hit_test_face(player, &x, &y, &z, &face)) {
@@ -1799,12 +1822,12 @@ void on_char(GLFWwindow *window, unsigned int u) {
         }
         if (u == FOOCRAFT_KEY_BUILD_COMMAND) {
             typing = 1;
-            typing_buffer[0] = '~';
+            typing_buffer[0] = '.';
             typing_buffer[1] = '\0';
         }
         if (u == CRAFT_KEY_SIGN) {
             typing = 1;
-            typing_buffer[0] = '?';
+            typing_buffer[0] = CRAFT_KEY_SIGN;
             typing_buffer[1] = '\0';
         }
     }
@@ -1998,7 +2021,7 @@ int main(int argc, char **argv) {
     text_attrib.uv = glGetAttribLocation(program, "uv");
     text_attrib.matrix = glGetUniformLocation(program, "matrix");
     text_attrib.sampler = glGetUniformLocation(program, "sampler");
-    text_attrib.extra1 = glGetUniformLocation(program, "shaded");
+    text_attrib.extra1 = glGetUniformLocation(program, "is_sign");
 
     program = load_program(
         "shaders/sky_vertex.glsl", "shaders/sky_fragment.glsl");
@@ -2419,6 +2442,7 @@ int main(int argc, char **argv) {
         glClear(GL_DEPTH_BUFFER_BIT);
         int face_count = render_chunks(&block_attrib, player);
         render_signs(&text_attrib, player);
+        render_sign(&text_attrib, player);
         render_players(&block_attrib, player);
         if (!guihide && SHOW_WIREFRAME) {
             render_wireframe(&line_attrib, player);

@@ -39,7 +39,7 @@
 #define CRAFT_KEY_ORTHO 'F'
 #define CRAFT_KEY_CHAT 't'
 #define CRAFT_KEY_COMMAND '/'
-#define CRAFT_KEY_SIGN '?'
+#define CRAFT_KEY_SIGN '`'
 
 // keys for moving along axes
 #define CRAFT_KEY_XM 'Z'
@@ -62,6 +62,6 @@
 #define FOOCRAFT_KEY_PASTE ']'
 #define FOOCRAFT_KEY_SELECT_1 ';'
 #define FOOCRAFT_KEY_SELECT_2 '\''
-#define FOOCRAFT_KEY_BUILD_COMMAND '`'
+#define FOOCRAFT_KEY_BUILD_COMMAND '.'
 
 #endif
