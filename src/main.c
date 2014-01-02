@@ -180,7 +180,9 @@ void get_motion_vector(int flying, int sz, int sx, float rx, float ry,
         float m = cosf(ry);
         float y = sinf(ry);
         if (sx) {
-            y = 0;
+            if (!sz) {
+                y = 0;
+            }
             m = 1;
         }
         if (sz > 0) {
@@ -2130,7 +2132,12 @@ int main(int argc, char **argv) {
             glfwGetCursorPos(window, &mx, &my);
             float m = 0.0025;
             rx += (mx - px) * m;
-            ry -= (my - py) * m;
+            if (INVERT_MOUSE) {
+                ry += (my - py) * m;
+            }
+            else {
+                ry -= (my - py) * m;
+            }
             if (rx < 0) {
                 rx += RADIANS(360);
             }
@@ -2195,7 +2202,11 @@ int main(int argc, char **argv) {
         }
         float speed = (flying ? 20 : 5) *
                       (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) ? 4 : 1);
-        int step = 8;
+        int estimate = roundf(sqrtf(
+            powf(vx * speed, 2) +
+            powf(vy * speed + ABS(dy) * 2, 2) +
+            powf(vz * speed, 2)) * dt * 8);
+        int step = MAX(8, estimate);
         float ut = dt / step;
         vx = vx * ut * speed;
         vy = vy * ut * speed;
