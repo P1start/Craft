@@ -2447,24 +2447,6 @@ int main(int argc, char **argv) {
                     dy = 8;
                 }
             }
-            if (glfwGetKey(window, CRAFT_KEY_XM)) {
-                vx = -1; vy = 0; vz = 0;
-            }
-            if (glfwGetKey(window, CRAFT_KEY_XP)) {
-                vx = 1; vy = 0; vz = 0;
-            }
-            if (glfwGetKey(window, CRAFT_KEY_YM)) {
-                vx = 0; vy = -1; vz = 0;
-            }
-            if (glfwGetKey(window, CRAFT_KEY_YP)) {
-                vx = 0; vy = 1; vz = 0;
-            }
-            if (glfwGetKey(window, CRAFT_KEY_ZM)) {
-                vx = 0; vy = 0; vz = -1;
-            }
-            if (glfwGetKey(window, CRAFT_KEY_ZP)) {
-                vx = 0; vy = 0; vz = 1;
-            }
         }
         float speed = (flying ? 20 : 5) *
                       (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) ? 4 : 1);
